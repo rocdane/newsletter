@@ -30,7 +30,7 @@ class CampaignService
             throw new \InvalidArgumentException('Aucun email valide trouvé dans le fichier.');
         }
 
-        $suscribers = $this->subscriberRepository->bulkCreateFromEmails($emails);
+        $subscribers = $this->subscriberRepository->bulkCreateFromEmails($emails);
 
         // create the campaign
         $campaign = Campaign::create([
@@ -41,7 +41,7 @@ class CampaignService
             'status' => 'pending',
         ]);
 
-        $this->emailRepository->createBulkEmails($suscribers, $subject, $content, $campaign);
+        $this->emailRepository->createBulkEmails($subscribers, $subject, $content, $campaign);
 
         $campaign->refresh();
 
@@ -75,7 +75,7 @@ class CampaignService
         return [
             'total_campaigns' => Campaign::count(),
             'total_sent' => $this->emailRepository->getSentEmails()->count(),
-            'active_suscribers' => $this->subscriberRepository->getActiveSubscribers()->count(),
+            'active_subscribers' => $this->subscriberRepository->getActiveSubscribers()->count(),
         ];
     }
 }

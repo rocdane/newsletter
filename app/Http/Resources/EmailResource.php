@@ -23,11 +23,11 @@ class EmailResource extends JsonResource
 
             // Subscriber information
             'subscriber' => [
-                'id' => $this->whenLoaded('suscriber', $this->suscriber?->id),
-                'email' => $this->whenLoaded('suscriber', $this->suscriber?->email),
-                'name' => $this->whenLoaded('suscriber', $this->suscriber?->name),
-                'lang' => $this->whenLoaded('suscriber', $this->suscriber?->lang),
-                'is_active' => $this->whenLoaded('suscriber', $this->suscriber?->is_active),
+                'id' => $this->whenLoaded('subscriber', $this->subscriber?->id),
+                'email' => $this->whenLoaded('subscriber', $this->subscriber?->email),
+                'name' => $this->whenLoaded('subscriber', $this->subscriber?->name),
+                'lang' => $this->whenLoaded('subscriber', $this->subscriber?->lang),
+                'is_active' => $this->whenLoaded('subscriber', $this->subscriber?->is_active),
             ],
 
             // Email tracking information

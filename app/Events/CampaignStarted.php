@@ -2,19 +2,19 @@
 
 namespace App\Events;
 
-use App\Models\EmailCampaign;
+use App\Models\Campaign;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class EmailCampaignStarted implements ShouldBroadcast
+class CampaignStarted implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public EmailCampaign $campaign
+        public Campaign $campaign
     ) {}
 
     public function broadcastOn(): array

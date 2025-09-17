@@ -24,27 +24,25 @@ class MailingProgress implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(MailService $mailService): void
+    public function handle(): void
     {
         try {
-            if($mailService->send($this->email)){
-                $email = Email::firstOrCreate(
-                    ['address' => $this->email['address']],
-                    $this->email
-                );
-    
-                if(!is_null($email)){
-                    Tracker::firstOrCreate(
-                        ['email_id' => $email->id],
-                        ['email_id' => $email->id,
-                        'sent' => true,
-                        'opened' => false,
-                        'clicks' => false,
-                        'unsubscribed' => false
-                    ]);
-                }
+            $email = Email::firstOrCreate(
+                ['address' => $this->email['address']],
+                $this->email
+            );
+
+            if(!is_null($email)){
+                Tracker::firstOrCreate(
+                    ['email_id' => $email->id],
+                    ['email_id' => $email->id,
+                    'sent' => true,
+                    'opened' => false,
+                    'clicks' => false,
+                    'unsubscribed' => false
+                ]);
             }
-            
+
             \Log::info('Mail sent successfully to ' . $email->address);
         } catch (Throwable $th) {
             \Log::error('Failed to send email : ' . $th->getMessage());

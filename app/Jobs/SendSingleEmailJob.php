@@ -28,22 +28,22 @@ class SendSingleEmailJob implements ShouldQueue
     public function handle(): void
     {
         try {
-            $this->email = $this->email->fresh(['suscriber']);
+            $this->email = $this->email->fresh(['subscriber']);
 
             Log::info('Processing email job', [
                 'email_id' => $this->email->id,
-                'subscriber_id' => $this->email->suscriber_id,
+                'subscriber_id' => $this->email->subscriber_id,
             ]);
 
-            if (! $this->email->suscriber) {
+            if (! $this->email->subscriber) {
                 throw new Exception('Subscriber not found for email ID: '.$this->email->id);
             }
 
-            if (! filter_var($this->email->suscriber->email, FILTER_VALIDATE_EMAIL)) {
-                throw new Exception('Invalid subscriber email: '.$this->email->suscriber->email);
+            if (! filter_var($this->email->subscriber->email, FILTER_VALIDATE_EMAIL)) {
+                throw new Exception('Invalid subscriber email: '.$this->email->subscriber->email);
             }
 
-            Mail::to($this->email->suscriber->email)->send(new Letter($this->email));
+            Mail::to($this->email->subscriber->email)->send(new Letter($this->email));
 
             $this->email->markAsSent();
 

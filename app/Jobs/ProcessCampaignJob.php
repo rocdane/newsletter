@@ -2,14 +2,14 @@
 
 namespace App\Jobs;
 
-use App\Events\EmailCampaignStarted;
-use App\Models\EmailCampaign;
+use App\Events\CampaignStarted;
+use App\Models\Campaign;
 use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
-class ProcessEmailCampaignJob implements ShouldQueue
+class ProcessCampaignJob implements ShouldQueue
 {
     use Queueable;
 
@@ -18,7 +18,7 @@ class ProcessEmailCampaignJob implements ShouldQueue
     public int $timeout = 300; // 5 minutes max
 
     public function __construct(
-        private EmailCampaign $campaign
+        private Campaign $campaign
     ) {}
 
     public function handle(): void
@@ -51,7 +51,7 @@ class ProcessEmailCampaignJob implements ShouldQueue
             // 4. Récupérer les emails avec validation
             $emails = $this->campaign->emails()
                 ->pending()
-                ->with('suscriber')
+                ->with('subscriber')
                 ->get();
 
             Log::info('Emails retrieved for processing', [
@@ -72,19 +72,19 @@ class ProcessEmailCampaignJob implements ShouldQueue
             }
 
             // 6. MAINTENANT on peut dispatcher l'event de début
-            EmailCampaignStarted::dispatch($this->campaign);
+            CampaignStarted::dispatch($this->campaign);
 
             // 7. Dispatcher les jobs d'envoi individuels
             $dispatchedJobs = 0;
             foreach ($emails as $email) {
                 // Validation supplémentaire avant dispatch
-                if ($email->suscriber) {
+                if ($email->subscriber) {
                     SendSingleEmailJob::dispatch($email);
                     $dispatchedJobs++;
                 } else {
                     Log::warning('Skipping email with inactive subscriber', [
                         'email_id' => $email->id,
-                        'subscriber_id' => $email->suscriber_id,
+                        'subscriber_id' => $email->subscriber_id,
                     ]);
 
                     // Marquer l'email comme failed
@@ -119,7 +119,7 @@ class ProcessEmailCampaignJob implements ShouldQueue
      */
     public function failed(Exception $exception): void
     {
-        Log::error('ProcessEmailCampaignJob failed permanently', [
+        Log::error('ProcessCampaignJob failed permanently', [
             'campaign_id' => $this->campaign->id,
             'error' => $exception->getMessage(),
         ]);
