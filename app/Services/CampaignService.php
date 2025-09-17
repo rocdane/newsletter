@@ -75,7 +75,7 @@ class CampaignService
         return [
             'total_campaigns' => Campaign::count(),
             'total_sent' => $this->emailRepository->getSentEmails()->count(),
-            'active_suscribers' => $this->subscriberRepository->getActiveSuscribers()->count(),
+            'active_suscribers' => $this->subscriberRepository->getActiveSubscribers()->count(),
         ];
     }
 }

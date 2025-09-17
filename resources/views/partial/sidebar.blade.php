@@ -4,7 +4,7 @@
 <nav class="sidebar sidebar-offcanvas" id="sidebar">
   <ul class="nav">
     <li @class(['nav-item', 'active' => str_contains($route,'dashboard')])>
-      <a class="nav-link" href={{route('dashboard')}}>
+      <a class="nav-link" href={{route('admin.dashboard')}}>
         <i class="ti-dashboard menu-icon"></i>
         <span class="menu-title">Dashboard</span>
       </a>

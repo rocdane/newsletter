@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Models\Email;
 use App\Models\EmailMeta;
 use App\Repositories\EmailRepository;
@@ -72,27 +73,5 @@ class EmailTrackingController extends Controller
         }
 
         return response('Lien invalide', 404);
-    }
-
-    public function open($email)
-    {
-        Email::with(['tracker' => function($query) {
-            $query->where('email', $email)->update('opened', true); 
-        }]);
-    }
-
-    public function click($email)
-    {
-        Email::with(['tracker' => function($query) {
-            $query->where('email', $email)->update('clicks', true); 
-        }]);
-        return to_route(config('app.url'));
-    }
-
-    public function unsubscribe($email)
-    {
-        Email::with(['tracker' => function($query) {
-            $query->where('email', $email)->update('unsubscribed', true); 
-        }]);
     }
 }

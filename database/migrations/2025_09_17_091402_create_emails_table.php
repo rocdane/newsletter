@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('emails', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('suscriber_id')->constrained()->onDelete('cascade');
+            $table->foreignId('subscriber_id')->constrained()->onDelete('cascade');
             $table->foreignId('campaign_id')->nullable();
             $table->string('subject');
             $table->longText('content');

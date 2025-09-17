@@ -8,6 +8,16 @@ use App\Models\Tracker;
 
 class HomeController extends Controller
 {
+    public function welcome()
+    {
+        return view('welcome');
+    }
+
+    public function subscribe()
+    {
+        return view('page.subscribe');
+    }
+
     public function dashboard()
     {
         $dashboard = $this->report();
@@ -29,11 +39,6 @@ class HomeController extends Controller
         $clicks = Tracker::where('clicks', true)->count();
 
         $unsubscribed = Tracker::where('unsubscribed', true)->count();
-
-        $stats = Email::selectRaw('lang, COUNT(*) as email_count')
-            ->groupBy('lang')
-            ->pluck('email_count', 'lang')
-            ->toArray();
         
         $emails = Email::all()->count();
         
@@ -42,7 +47,6 @@ class HomeController extends Controller
             'opened' => $opened,
             'clicks' => $clicks,
             'unsubscribed' => $unsubscribed,
-            'stats' => $stats,
             'emails' => $emails
         ]));
     }

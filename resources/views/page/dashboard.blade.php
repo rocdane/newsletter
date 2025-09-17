@@ -24,27 +24,6 @@
                                     <p class="text-muted mb-2 mb-xl-0">The total number of email sent.</p>
                                 </div>  
                             </div>
-                            <div class="col-md-12 col-xl-9">
-                                <div class="row">
-                                    <div class="col-md-6 mt-3 col-xl-5">
-                                        <canvas id="north-america-chart"></canvas>
-                                        <div id="north-america-legend"></div>
-                                    </div>
-                                    <div class="col-md-6 col-xl-7">
-                                        <div class="table-responsive mb-3 mb-md-0">
-                                            <table class="table table-borderless report-table">
-                                                @foreach ($dashboard->stats as $lang => $count)
-                                                    @include('shared.stats',[
-                                                        'name'=>$lang,
-                                                        'value'=>$count, 
-                                                        'percent'=> 100 * $count/$dashboard->emails
-                                                    ])
-                                                @endforeach
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
