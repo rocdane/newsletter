@@ -5,7 +5,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Suscriber;
 
-class SuscribeForm extends Component
+class SubscribeForm extends Component
 {
     public $email;
 
@@ -26,6 +26,6 @@ class SuscribeForm extends Component
 
     public function render()
     {
-        return view('livewire.suscribe-form');
+        return view('livewire.subscribe-form');
     }
 }
