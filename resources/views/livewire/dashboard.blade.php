@@ -45,7 +45,7 @@
                     Suscribers actifs
                 </dt>
                 <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                    {{ $active_suscribers }}
+                    {{ $active_subscribers }}
                 </dd>
             </div>
         </div>

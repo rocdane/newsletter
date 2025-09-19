@@ -21,7 +21,7 @@ class EmailSent implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('email-campaign.'.$this->email->email_campaign_id),
+            new PrivateChannel('email-campaign.'.$this->email->campaign_id),
         ];
     }
 

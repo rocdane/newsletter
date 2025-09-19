@@ -9,3 +9,33 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* Styles pour la progression */
+.step-complete {
+    @apply bg-green-500 text-white border-green-500;
+}
+
+.step-active {
+    @apply bg-blue-500 text-white border-blue-500;
+}
+
+.step-inactive {
+    @apply bg-gray-100 text-gray-500 border-gray-300;
+}
+
+/* Animation pour les transitions d'étapes */
+.step-content {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -6,21 +6,24 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use App\Enums\EmailStatus;
 
 class Email extends Model
 {
     protected $fillable = [
         'subscriber_id',
         'campaign_id',
-        'subject',
-        'content',
         'status',
         'tracking_token',
-        'sent_at',
+        'delivered_at',
+        'clicked_at',
+        'metadata',
     ];
 
     protected $casts = [
-        'sent_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'clicked_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     protected static function booted(): void
@@ -42,36 +45,33 @@ class Email extends Model
         return $this->belongsTo(Campaign::class);
     }
 
-    public function metas(): HasMany
-    {
-        return $this->hasMany(EmailMeta::class);
-    }
-
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', EmailStatus::PENDING->value);
     }
 
-    public function scopeSent($query)
+    public function scopeDelivered($query)
     {
-        return $query->where('status', 'sent');
+        return $query->where('status', EmailStatus::DELIVERED->value);
     }
 
-    public function scopeOpened($query)
+    public function scopeClicked($query)
     {
-        return $query->where('status', 'opened');
+        return $query->where('status', EmailStatus::CLICKED->value);
     }
 
-    public function markAsSent(): void
+    public function markAsDelivered(): void
     {
-        $this->status = 'sent';
-        $this->sent_at = now();
+        $this->status = EmailStatus::DELIVERED->value;
+        $this->delivered_at = now();
         $this->save();
     }
 
-    public function markAsFailed(): void
+    public function markAsClicked(): void
     {
-        $this->update(['status' => 'failed']);
+        $this->status = EmailStatus::CLICKED->value;
+        $this->clicked_at = now();
+        $this->save();
     }
 
     public function getTrackingPixelUrl(): string

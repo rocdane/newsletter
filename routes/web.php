@@ -5,6 +5,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\EmailTrackerController;
 use App\Livewire\Dashboard;
 use App\Livewire\MailingForm;
+use App\Livewire\CampaignForm;
 use App\Livewire\CampaignProgress;
 
 Route::get('/', [HomeController::class, 'welcome'])->name('welcome');
@@ -18,7 +19,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 });
 
 Route::prefix('email')->name('email.')->group(function () {
-    Route::get('/campaign/create', MailingForm::class)->name('campaign.create');
+    Route::get('/campaign/create', CampaignForm::class)->name('campaign.create');
     Route::get('/campaign/{campaign}/progress', CampaignProgress::class)->name('campaign.progress');
     Route::get('/open/{email}', [EmailTrackerController::class, 'open'])->name('open');
     Route::get('/click/{email}', [EmailTrackerController::class, 'click'])->name('click');

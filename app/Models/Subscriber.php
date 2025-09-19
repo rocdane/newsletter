@@ -12,8 +12,6 @@ class Subscriber extends Model
     
     protected $fillable = [
         'email',
-        'lang',
-        'name',
         'is_active',
     ];
 
@@ -29,10 +27,5 @@ class Subscriber extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
-    }
-
-    public function getFullNameAttribute(): string
-    {
-        return trim("{$this->first_name} {$this->last_name}");
     }
 }

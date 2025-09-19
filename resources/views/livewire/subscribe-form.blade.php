@@ -2,7 +2,7 @@
     <x-slot name="title">Suscribe</x-slot>
 
     <div class="flex items-center justify-center min-h-screen">
-        <form wire:submit.prevent="suscribe" class="form-horizontal">
+        <form wire:submit.prevent="subscribe" class="form-horizontal">
 
         @include('shared.input',['label'=>'Email address', 'name'=>'email'])
 

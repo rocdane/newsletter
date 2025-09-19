@@ -9,7 +9,7 @@ class Dashboard extends Component
 {
     public $total_campaigns;
     public $total_sent;
-    public $active_suscribers;
+    public $active_subscribers;
 
     public function mount()
     {
@@ -26,7 +26,7 @@ class Dashboard extends Component
 
         $this->total_campaigns = $stats['total_campaigns'];
         $this->total_sent = $stats['total_sent'];
-        $this->active_suscribers = $stats['active_suscribers'];
+        $this->active_subscribers = $stats['active_subscribers'];
     }
 
     public function render()

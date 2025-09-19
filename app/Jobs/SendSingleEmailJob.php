@@ -6,20 +6,21 @@ use App\Events\EmailFailed;
 use App\Events\EmailSent;
 use App\Mail\Letter;
 use App\Models\Email;
-use App\Models\EmailMeta;
 use Exception;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class SendSingleEmailJob implements ShouldQueue
 {
-    use Queueable;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 2; // Nombre de tentatives
-
-    public int $backoff = 60; // 1 minute entre les tentatives
+    protected int $tries = 2;
+    protected int $backoff = 60;
 
     public function __construct(
         private Email $email
@@ -36,31 +37,26 @@ class SendSingleEmailJob implements ShouldQueue
             ]);
 
             if (! $this->email->subscriber) {
-                throw new Exception('Subscriber not found for email ID: '.$this->email->id);
+                throw new Exception("Subscriber not found for email ID: {$this->email->id}");
             }
 
             if (! filter_var($this->email->subscriber->email, FILTER_VALIDATE_EMAIL)) {
-                throw new Exception('Invalid subscriber email: '.$this->email->subscriber->email);
+                throw new Exception("Invalid subscriber email: {$this->email->subscriber->email}");
             }
 
             Mail::to($this->email->subscriber->email)->send(new Letter($this->email));
 
-            $this->email->markAsSent();
-
-            EmailMeta::trackDelivered($this->email, [
-                'sent_at' => now()->toISOString(),
-            ]);
-
-            $this->email->campaign->incrementSent();
+            $this->email->markAsDelivered();
 
             EmailSent::dispatch($this->email, 'Email sent successfully.');
 
         } catch (Exception $e) {
-            $this->email->markAsFailed();
-
-            $this->email->campaign->incrementFailed();
-
             EmailFailed::dispatch($this->email, $e->getMessage());
+
+            Log::error('Email sending failed', [
+                'email_id' => $this->email->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
 
             throw $e;
         }

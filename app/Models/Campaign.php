@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Enums\CampaignStatus;
 
 class Campaign extends Model
 {
@@ -14,9 +15,8 @@ class Campaign extends Model
         'name',
         'subject',
         'content',
-        'total_emails',
-        'sent_emails',
-        'failed_emails',
+        'from_name',
+        'from_email',
         'status',
     ];
 
@@ -24,32 +24,14 @@ class Campaign extends Model
     {
         return $this->hasMany(Email::class);
     }
-
-    public function getProgressPercentageAttribute(): float
+    
+    public function scopeCompleted($query)
     {
-        if ($this->total_emails === 0) {
-            return 0;
-        }
-
-        return round(($this->sent_emails + $this->failed_emails) / $this->total_emails * 100, 2);
+        return $query->where('status', CampaignStatus::COMPLETED->value);
     }
 
-    public function incrementSent(): void
+    public function scopeFailed($query)
     {
-        $this->increment('sent_emails');
-        $this->checkIfCompleted();
-    }
-
-    public function incrementFailed(): void
-    {
-        $this->increment('failed_emails');
-        $this->checkIfCompleted();
-    }
-
-    private function checkIfCompleted(): void
-    {
-        if (($this->sent_emails + $this->failed_emails) >= $this->total_emails) {
-            $this->update(['status' => 'completed']);
-        }
+        return $query->where('status', CampaignStatus::FAILED->value);
     }
 }

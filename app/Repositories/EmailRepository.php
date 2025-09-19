@@ -8,20 +8,14 @@ use Illuminate\Support\Collection;
 
 class EmailRepository
 {
-    public function createBulkEmails(
-        Collection $subscribers,
-        string $subject,
-        string $content,
-        Campaign $campaign
-    ): Collection {
+    public function createBulkEmails(Collection $subscribers, Campaign $campaign): Collection 
+    {
         $emails = collect();
 
         foreach ($subscribers as $subscriber) {
             $email = Email::create([
                 'subscriber_id' => $subscriber->id,
                 'email_campaign_id' => $campaign->id,
-                'subject' => $subject,
-                'content' => $content,
                 'status' => 'pending',
             ]);
 

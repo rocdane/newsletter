@@ -2,50 +2,38 @@
 
 namespace App\Services;
 
-use App\Jobs\ProcessCampaignJob;
-use App\Models\Campaign;
-use App\Repositories\EmailRepository;
-use App\Repositories\SubscriberRepository;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
+use App\Models\Campaign;
+use App\Enums\CampaignStatus;
+use App\Repositories\EmailRepository;
+use App\Jobs\ProcessCampaignJob;
 
 class CampaignService
 {
-    public function __construct(
-        private EmailParsingService $emailParsingService,
-        private SubscriberRepository $subscriberRepository,
-        private EmailRepository $emailRepository
-    ) {}
+    public function __construct(private EmailRepository $emailRepository) {}
 
     public function createCampaign(
-        UploadedFile $file,
+        Collection $subscribers,
         string $subject,
         string $content,
-        ?string $campaignName = null
+        ?string $campaignName = null,
+        ?string $fromName = null,
+        ?string $fromEmail = null
     ): Campaign {
 
-        // todo: validate file type and size before parsing
-        $emails = $this->emailParsingService->parseEmailFile($file);
-
-        if (empty($emails)) {
-            throw new \InvalidArgumentException('Aucun email valide trouvé dans le fichier.');
-        }
-
-        $subscribers = $this->subscriberRepository->bulkCreateFromEmails($emails);
-
-        // create the campaign
         $campaign = Campaign::create([
             'name' => $campaignName ?: 'Campagne du '.now()->format('d/m/Y H:i'),
             'subject' => $subject,
             'content' => $content,
-            'total_emails' => count($emails),
-            'status' => 'pending',
+            'from_name' => $fromName,
+            'from_email' => $fromEmail
         ]);
 
-        $this->emailRepository->createBulkEmails($subscribers, $subject, $content, $campaign);
+        $this->emailRepository->createBulkEmails($subscribers, $campaign);
 
         $campaign->refresh();
 
-        // todo: dispatch job to process campaign
         ProcessCampaignJob::dispatch($campaign);
 
         return $campaign;
@@ -53,20 +41,21 @@ class CampaignService
 
     public function getCampaignStats(Campaign $campaign): array
     {
-        $emails = $campaign->emails()->get();
+        $total = $campaign->emails()->count();
+        $delivered = $campaign->emails()->delivered()->count();
+        $pending = $campaign->emails()->pending()->count();
+        $clicked = $campaign->emails()->clicked()->count();
+
+        if (($delivered + $pending) >= $total) {
+            $campaign->update(['status' => CampaignStatus::COMPLETED->value]);
+        }
 
         return [
-            'total' => $campaign->total_emails,
-            'sent' => $campaign->sent_emails,
-            'failed' => $campaign->failed_emails,
-            'pending' => $campaign->total_emails - $campaign->sent_emails - $campaign->failed_emails,
-            'progress_percentage' => $campaign->progress_percentage,
-            'opened_count' => $emails->sum(function ($email) {
-                return $email->metas()->where('type', 'opened')->count();
-            }),
-            'clicked_count' => $emails->sum(function ($email) {
-                return $email->metas()->where('type', 'clicked')->count();
-            }),
+            'total' => $total,
+            'delivered' => $delivered,
+            'pending' => $pending,
+            'clicked' => $clicked,
+            'progress_percentage' => round(($sent + $pending) / $total * 100, 2),
         ];
     }
 
@@ -74,8 +63,7 @@ class CampaignService
     {
         return [
             'total_campaigns' => Campaign::count(),
-            'total_sent' => $this->emailRepository->getSentEmails()->count(),
-            'active_subscribers' => $this->subscriberRepository->getActiveSubscribers()->count(),
+            'total_delivered' => $this->emailRepository->getDeliveredEmails()->count(),
         ];
     }
 }

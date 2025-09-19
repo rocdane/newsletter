@@ -2,131 +2,58 @@
 
 namespace App\Jobs;
 
-use App\Events\CampaignStarted;
 use App\Models\Campaign;
-use Exception;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ProcessCampaignJob implements ShouldQueue
 {
-    use Queueable;
-
-    public int $tries = 2;
-
-    public int $timeout = 300; // 5 minutes max
-
-    public function __construct(
-        private Campaign $campaign
-    ) {}
-
-    public function handle(): void
-    {
-        try {
-            Log::info('Starting campaign processing', [
-                'campaign_id' => $this->campaign->id,
-                'campaign_name' => $this->campaign->name,
-            ]);
-
-            // 1. Vérifier que la campagne existe toujours
-            $this->campaign = $this->campaign->fresh();
-            if (! $this->campaign) {
-                throw new Exception('Campaign not found');
-            }
-
-            // 2. Vérifier le statut (éviter double traitement)
-            if ($this->campaign->status !== 'pending') {
-                Log::warning('Campaign already processed or processing', [
-                    'campaign_id' => $this->campaign->id,
-                    'status' => $this->campaign->status,
-                ]);
-
-                return;
-            }
-
-            // 3. Mettre à jour le statut
-            $this->campaign->update(['status' => 'processing']);
-
-            // 4. Récupérer les emails avec validation
-            $emails = $this->campaign->emails()
-                ->pending()
-                ->with('subscriber')
-                ->get();
-
-            Log::info('Emails retrieved for processing', [
-                'campaign_id' => $this->campaign->id,
-                'total_emails' => $emails->count(),
-                'email_ids' => $emails->pluck('id')->toArray(),
-            ]);
-
-            // 5. Vérifier qu'il y a des emails à traiter
-            if ($emails->isEmpty()) {
-                Log::warning('No emails to process for campaign', [
-                    'campaign_id' => $this->campaign->id,
-                ]);
-
-                $this->campaign->update(['status' => 'completed']);
-
-                return;
-            }
-
-            // 6. MAINTENANT on peut dispatcher l'event de début
-            CampaignStarted::dispatch($this->campaign);
-
-            // 7. Dispatcher les jobs d'envoi individuels
-            $dispatchedJobs = 0;
-            foreach ($emails as $email) {
-                // Validation supplémentaire avant dispatch
-                if ($email->subscriber) {
-                    SendSingleEmailJob::dispatch($email);
-                    $dispatchedJobs++;
-                } else {
-                    Log::warning('Skipping email with inactive subscriber', [
-                        'email_id' => $email->id,
-                        'subscriber_id' => $email->subscriber_id,
-                    ]);
-
-                    // Marquer l'email comme failed
-                    $email->markAsFailed();
-                    $this->campaign->incrementFailed();
-                }
-            }
-
-            Log::info('Email jobs dispatched successfully', [
-                'campaign_id' => $this->campaign->id,
-                'jobs_dispatched' => $dispatchedJobs,
-                'jobs_skipped' => $emails->count() - $dispatchedJobs,
-            ]);
-
-        } catch (Exception $e) {
-            Log::error('Failed to process email campaign', [
-                'campaign_id' => $this->campaign->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            // Marquer la campagne comme failed
-            $this->campaign->update(['status' => 'failed']);
-
-            // Re-lancer l'exception pour que Laravel gère le retry
-            throw $e;
-        }
-    }
+    use Dispatchable, InteractsWithQueue, Queueable;
 
     /**
-     * Handle a job failure.
+     * Create a new job instance.
      */
-    public function failed(Exception $exception): void
+    public function __construct(private Campaign $campaign){}
+
+    /**
+     * Execute the job.
+     */
+    public function handle(): void
     {
-        Log::error('ProcessCampaignJob failed permanently', [
+        Log::info('Processing Campaign job started', [
             'campaign_id' => $this->campaign->id,
-            'error' => $exception->getMessage(),
+            'total_emails' => $this->campaign->emails()->count(),
         ]);
 
-        // Marquer la campagne comme failed si pas déjà fait
-        if ($this->campaign->status !== 'failed') {
-            $this->campaign->update(['status' => 'failed']);
+        try {
+            $jobs = [];
+
+            foreach ($this->campaign->emails as $index => $email) {
+                $delay = now()->addSeconds($index * 5);
+                $jobs[] = (new SendSingleEmailJob($email))->delay($delay);
+            }
+
+            $batch = Bus::batch($jobs)->dispatch();
+
+            Cache::put('campaign_batch_id', $batch?->id ?? 0);
+
+            Log::info('Processing Campaign job finished successfully', [
+                'campaign_id' => $this->campaign->id,
+                'batch_id' => $batch?->id,
+                'total_emails' => $this->campaign->emails()->count(),
+            ]);
+
+        } catch (\Throwable $th) {
+            Log::error('Processing Campaign Job Failed', [
+                'campaign_id' => $this->campaign->id,
+                'error' => $th->getMessage(),
+            ]);
+            throw $th;
         }
     }
 }

@@ -2,12 +2,16 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use App\Repositories\SubscriberRepository;
 
 class EmailParsingService
 {
+    public function __construct(private SubscriberRepository $subscriberRepository) {}
+    
     /**
      * Parse le fichier CSV/TXT et extrait les emails
      */
@@ -19,6 +23,11 @@ class EmailParsingService
         $emails = $this->extractEmailsFromContent($content);
         
         return array_unique(array_filter($emails));
+    }
+
+    public function createSubscribers(array $emails): Collection
+    {
+        return $this->subscriberRepository->bulkCreateFromEmails($emails);
     }
 
     private function validateFile(UploadedFile $file): void
@@ -96,27 +105,5 @@ class EmailParsingService
         $recipient = array_map('trim', explode('@', $email));
         
         return $recipient[0];
-    }
-
-    private function prepare(array $data)
-    {
-        $mailist = $this->getEmails($data['recipients']);
-        
-        $lang = $this->getLang($mailist);
-
-        $emails = [];
-
-        foreach ($mailist as $key => $email) {
-            $emails[] = [
-                'lang' => $lang,
-                'name' => $this->baseName($email),
-                'address' => $email,
-                'subject' => $data['subject'],
-                'body' => $data['body']
-            ];
-        }
-
-        return $emails;
-    }
-    
+    }    
 }

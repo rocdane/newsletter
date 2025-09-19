@@ -3,21 +3,21 @@
 namespace App\Livewire;
 
 use Livewire\Component;
-use App\Models\Suscriber;
+use App\Models\Subscriber;
 
 class SubscribeForm extends Component
 {
     public $email;
 
-    protected $listeners = ['submit' => 'suscribe'];
+    protected $listeners = ['submit' => 'subscribe'];
 
-    public function suscribe()
+    public function subscribe()
     {
         $this->validate([
             'email' => 'required|email|unique:emails,email'
         ]);
 
-        Suscriber::create(['email' => $this->email]);
+        Subscriber::firstOrCreate(['email' => $this->email]);
 
         session()->flash('message', 'You have successfully subscribed!');
 
