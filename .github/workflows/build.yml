@@ -1,62 +1,172 @@
-name: Build Docker Images
+name: Build and Push Docker Images
 
 on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - "**.md"
+      - ".gitignore"
+      - "docs/**"
   push:
     branches:
       - main
+    tags: ["v*"]
+    paths-ignore:
+      - "**.md"
+      - ".gitignore"
+      - "docs/**"
+  workflow_dispatch:
+    inputs:
+      push_to_registries:
+        description: "Push to registries"
+        required: true
+        default: true
+        type: boolean
 
 env:
   GHCR_REGISTRY: ghcr.io
   DOCKERHUB_REGISTRY: docker.io
   IMAGE_NAME: ${{ github.repository }}
+  # Remplacez par vos vraies valeurs DockerHub
+  DOCKERHUB_NAMESPACE: ${{secrets.DOCKERHUB_USERNAME}}
+  DOCKERHUB_REPO: ${{github.repository}}
 
 jobs:
-  build-and-push:
+  # 🧪 Job de test optionnel
+  test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
-      # 🔹 Login GHCR
-      - name: Log in to GHCR
+      - name: Run tests
+        run: |
+          # Ajoutez vos tests ici
+          echo "Running tests..."
+          # docker build --target test .
+
+  # 🏗️ Job principal de build
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tags: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 🔧 Setup Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 🔹 Login GHCR (toujours actif)
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 🔹 Login Docker Hub
-      - name: Log in to DockerHub
+      # 🔹 Login Docker Hub (conditionnel)
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
         uses: docker/login-action@v3
         with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 🔹 Extract metadata
-      - name: Docker Metadata
+      # 📋 Extract metadata avec tags sophistiqués
+      - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
             ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
-            ${{ env.DOCKERHUB_REGISTRY }}/<dockerhub_username>/<repo_name>
+            ${{ github.event_name != 'pull_request' && format('{0}/{1}/{2}', env.DOCKERHUB_REGISTRY, env.DOCKERHUB_NAMESPACE, env.DOCKERHUB_REPO) || '' }}
           tags: |
-            type=sha,format=long
+            # Pour les PRs
+            type=ref,event=pr,prefix=pr-
+            # Pour les branches
             type=ref,event=branch
+            # Pour les tags
             type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # SHA court pour tous
+            type=sha,prefix={{branch}}-,format=short
+            # Latest pour main
+            type=raw,value=latest,enable={{is_default_branch}}
+            # Date pour develop
+            type=raw,value=nightly,enable=${{ github.ref == 'refs/heads/develop' }}
+          labels: |
+            org.opencontainers.image.title=${{ github.repository }}
+            org.opencontainers.image.description=Laravel Mailing Application
+            org.opencontainers.image.vendor=${{ github.repository_owner }}
+            org.opencontainers.image.licenses=MIT
 
-      # 🔹 Build & Push (to both registries)
+      # 🏗️ Build and push avec cache
       - name: Build and push Docker images
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' || github.event.inputs.push_to_registries == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Build args optionnels
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+            APP_ENV=production
+
+      # 🔍 Scan de sécurité avec Trivy
+      - name: Run Trivy vulnerability scanner
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy scan results
+        if: github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: "trivy-results.sarif"
+
+      # 📊 Summary
+      - name: Generate job summary
+        run: |
+          echo "## 🐳 Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Event:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Ref:** ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "**SHA:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🏷️ Generated Tags" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.meta.outputs.tags }}' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Registry Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [GitHub Container Registry](https://github.com/${{ github.repository }}/pkgs/container/${{ github.event.repository.name }})" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "- [Docker Hub](https://hub.docker.com/r/${{ env.DOCKERHUB_NAMESPACE }}/${{ env.DOCKERHUB_REPO }})" >> $GITHUB_STEP_SUMMARY
+          fi
