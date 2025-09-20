@@ -12,11 +12,11 @@
         <p>{{$content}}</p>
         <p>{{__('mail.thanks')}}</p>
     </div>
-    <a href={{$target}} class="cta">{{__('mail.action')}}</a>
+    <a href={{$track_click}} class="cta">{{__('mail.action')}}</a>
     <div class="footer">
         <p>&copy; 2024 {{env('APP_NAME')}}. {{__('mail.right')}}.</p>
-        <p>{{__('mail.unsubscribe-message')}}, <a href={{$link}}>{{__('mail.unsubscribe-cta')}}</a>.</p>
-        <img src={{$tracker}} alt="" style="display:none;">
+        <p>{{__('mail.unsubscribe-message')}}, <a href={{$track_unsubscribe}}>{{__('mail.unsubscribe-cta')}}</a>.</p>
+        <img src={{$track_open}} alt="" style="display:none;">
     </div>
 </div>
 @stop

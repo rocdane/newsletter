@@ -34,9 +34,8 @@ class CampaignTest extends TestCase
 
         $campaignService = app(CampaignService::class);
         $emailParsingService = app(EmailParsingService::class);
-
-        $emails = $emailParsingService->parseEmailFile($file);
-        $subscribers = $emailParsingService->createSubscribers($emails);
+        
+        $subscribers = $emailParsingService->createSubscribers($file);
 
         $campaign = $campaignService->createCampaign(
             $subscribers,
@@ -66,8 +65,7 @@ class CampaignTest extends TestCase
         $campaignService = app(CampaignService::class);
         $emailParsingService = app(EmailParsingService::class);
 
-        $emails = $emailParsingService->parseEmailFile($file);
-        $subscribers = $emailParsingService->createSubscribers($emails);
+        $subscribers = $emailParsingService->createSubscribers($file);
 
         $campaign = $campaignService->createCampaign($subscribers, 'Subject', 'Content',null,null,null);
 
@@ -83,12 +81,11 @@ class CampaignTest extends TestCase
         $campaignService = app(CampaignService::class);
         $emailParsingService = app(EmailParsingService::class);
 
-        $emails = $emailParsingService->parseEmailFile($file);
-        $subscribers = $emailParsingService->createSubscribers($emails);
+        $subscribers = $emailParsingService->createSubscribers($file);
         $campaignService->createCampaign($subscribers, 'Subject', 'Content');
     }
 
-    /*
+    
     public function test_empty_file_throws_exception(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -99,9 +96,8 @@ class CampaignTest extends TestCase
         
         $campaignService = app(CampaignService::class);
         $emailParsingService = app(EmailParsingService::class);
-
-        $emails = $emailParsingService->parseEmailFile($file);
-        $subscribers = $emailParsingService->createSubscribers($emails);
+        
+        $subscribers = $emailParsingService->createSubscribers($file);
         $campaignService->createCampaign($subscribers, 'Subject', 'Content',null,null,null);
     }
 
@@ -116,10 +112,9 @@ class CampaignTest extends TestCase
         $campaignService = app(CampaignService::class);
         $emailParsingService = app(EmailParsingService::class);
 
-        $emails = $emailParsingService->parseEmailFile($file);
-        $subscribers = $emailParsingService->createSubscribers($emails);
+        $subscribers = $emailParsingService->createSubscribers($file);
         $campaignService->createCampaign($subscribers, 'Subject', 'Content',null,null,null);
-    }*/
+    }
 
     protected function createTestCsvFile(array $emails): UploadedFile
     {

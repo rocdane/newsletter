@@ -28,6 +28,7 @@ return new class extends Migration
         Schema::create('subscribers', function (Blueprint $table) {
             $table->id();
             $table->string('email')->unique();
+            $table->string('name')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->index(['email', 'is_active']);
@@ -40,9 +41,10 @@ return new class extends Migration
             $table->string('status')->default(EmailStatus::PENDING->value);
             $table->string('tracking_token')->unique();
             $table->timestamp('delivered_at')->nullable();
+            $table->timestamp('opened_at')->nullable();
             $table->timestamp('clicked_at')->nullable();
-            $table->json('metadata')->nullable();
             $table->timestamps();
+            $table->json('metadata')->nullable();
             $table->index(['status', 'delivered_at']);
             $table->index('tracking_token');
         });
@@ -53,7 +55,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('campaign_tables');
+        Schema::dropIfExists('campaigns');
         Schema::dropIfExists('subscribers');
         Schema::dropIfExists('emails');
     }

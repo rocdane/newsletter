@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('app.name', 'Laravel') }}</title>
-    <x-head.tinymce-config/>
+    <script src="https://cdn.tiny.cloud/1/v1xb3atbe8h4iqe9jag2ysuqoj501pus0s5en4bp68rydh96/tinymce/8/tinymce.min.js" referrerpolicy="origin" crossorigin="anonymous"></script>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles

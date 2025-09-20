@@ -28,7 +28,7 @@ class Letter extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->email->subject,
+            subject: $this->email->campaign->subject,
         );
     }
 
@@ -40,12 +40,12 @@ class Letter extends Mailable
         return new Content(
             view: 'mail.letter',
             with: [
-                'name' => $this->email->suscriber->name,
-                'subject' => $this->email->subject,
-                'content' => $this->email->content,
-                'tracker' => route('email.tracking.pixel', ['token' => $this->email->trackingToken]),
-                'target' => route('email.tracking.click', ['token' => $this->email->trackingToken]),
-                'link' => route('email.tracking.unsuscribe', ['token' => $this->email->trackingToken]),
+                'name' => $this->email->subscriber->name,
+                'subject' => $this->email->campaign->subject,
+                'content' => $this->email->campaign->content,
+                'track_open' => route('email.tracking.pixel', ['token' => $this->email->tracking_token]),
+                'track_click' => route('email.tracking.click', ['token' => $this->email->tracking_token]),
+                'track_unsubscribe' => route('email.tracking.unsubscribe', ['token' => $this->email->tracking_token]),
             ]
         );
     }

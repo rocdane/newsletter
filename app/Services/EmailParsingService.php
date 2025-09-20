@@ -25,8 +25,14 @@ class EmailParsingService
         return array_unique(array_filter($emails));
     }
 
-    public function createSubscribers(array $emails): Collection
+    public function createSubscribers(UploadedFile $file): Collection
     {
+        $emails = $this->parseEmailFile($file);
+
+        if (empty($emails)) {
+            throw new \InvalidArgumentException('Aucun email valide trouvé dans le fichier.');
+        }
+
         return $this->subscriberRepository->bulkCreateFromEmails($emails);
     }
 

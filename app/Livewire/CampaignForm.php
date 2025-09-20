@@ -27,18 +27,17 @@ class CampaignForm extends Component
     public $fromName;
     public $fromEmail;
     public $file;
-    public $previewText;
     
     protected $rules = [
         // Step 1
-        'fromName' => 'required|min:2|max:100',
-        'fromEmail' => 'required|email',
-        'file' => 'nullable|file|mimes:csv,txt|max:2048',
-
-        // Step 2
         'campaignName' => 'required|min:3|max:255',
         'subject' => 'required|min:3|max:255',
         'content' => 'required|min:10',
+
+        // Step 2
+        'fromName' => 'required|min:2|max:100',
+        'fromEmail' => 'required|email',
+        'file' => 'nullable|file|mimes:csv,txt|max:2048',
     ];
 
     protected $messages = [
@@ -98,6 +97,7 @@ class CampaignForm extends Component
                     'subject' => $this->rules['subject'],
                     'content' => $this->rules['content'],
                 ]);
+                
                 break;
                 
             case 2:
@@ -106,6 +106,7 @@ class CampaignForm extends Component
                     'fromEmail' => $this->rules['fromEmail'],
                     'file' => $this->rules['file'],
                 ]);
+
                 break;
         }
     }
@@ -120,13 +121,7 @@ class CampaignForm extends Component
     private function validateFile(EmailParsingService $emailParsingService)
     {
         if ($this->file) {
-            $emails = $emailParsingService->parseEmailFile($file);
-
-            if (empty($emails)) {
-                throw new \InvalidArgumentException('Aucun email valide trouvé dans le fichier.');
-            }
-
-            $this->subscribers = $emailParsingService->createSubscribers($emails);
+            $this->subscribers = $emailParsingService->createSubscribers($this->file);
         }
     }
 
@@ -137,7 +132,7 @@ class CampaignForm extends Component
         }
         
         try {
-            $campaign = $this->campaignService->createCampaign(
+            $campaign = $campaignService->createCampaign(
                 $this->subscribers, 
                 $this->subject, 
                 $this->content, 

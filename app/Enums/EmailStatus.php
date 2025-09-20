@@ -6,6 +6,7 @@ enum EmailStatus: String
 {
     case PENDING = 'pending';
     case DELIVERED = 'delivered';
+    case OPENED = 'opened';
     case CLICKED = 'clicked';
 
     public static function values(): array
@@ -18,6 +19,7 @@ enum EmailStatus: String
         return [
             self::PENDING->value => 'pending',
             self::DELIVERED->value => 'delivered',
+            self::OPENED->value => 'opened',
             self::CLICKED->value => 'clicked',
         ];
     }
@@ -27,6 +29,7 @@ enum EmailStatus: String
         return match ($this) {
             self::PENDING->value => 'pending',
             self::DELIVERED->value => 'delivered',
+            self::OPENED->value => 'opened',
             self::CLICKED->value => 'clicked',
         };
     }
@@ -36,6 +39,7 @@ enum EmailStatus: String
         return match ($this) {
             self::PENDING => 'gray',
             self::DELIVERED => 'yellow',
+            self::OPENED => 'blue',
             self::CLICKED => 'green',
         };
     }
@@ -48,6 +52,11 @@ enum EmailStatus: String
     public function isDelivered(): bool
     {
         return $this === self::DELIVERED;
+    }
+
+    public function isOpened(): bool
+    {
+        return $this === self::OPENED;
     }
 
     public function isClicked(): bool

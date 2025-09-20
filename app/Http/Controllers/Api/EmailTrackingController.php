@@ -2,29 +2,22 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Email;
-use App\Models\EmailMeta;
 use App\Repositories\EmailRepository;
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class EmailTrackingController extends Controller
 {
-    public function __construct(
-        private EmailRepository $emailRepository
-    ) {}
+    public function __construct(private EmailRepository $emailRepository) {}
 
     public function track_pixel(Request $request, string $token): Response
     {
         $email = $this->emailRepository->findByTrackingToken($token);
         
         if ($email) {
-            EmailMeta::trackOpened($email, [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'opened_at' => now()->toISOString(),
-            ]);
+            $email->markAsOpened();
         }
 
         // Retourner un pixel transparent 1x1
@@ -43,13 +36,7 @@ class EmailTrackingController extends Controller
         $originalUrl = base64_decode($request->get('url', ''));
 
         if ($email && $originalUrl) {
-            EmailMeta::trackClicked($email, [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'clicked_url' => $originalUrl,
-                'clicked_at' => now()->toISOString(),
-            ]);
-
+            $email->markAsClicked();
             return response('Lien valide', 201);
         }
 
@@ -62,13 +49,7 @@ class EmailTrackingController extends Controller
         $originalUrl = base64_decode($request->get('url', ''));
 
         if ($email && $originalUrl) {
-            EmailMeta::trackUnsubscribed($email, [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'clicked_url' => $originalUrl,
-                'clicked_at' => now()->toISOString(),
-            ]);
-
+            $email->subscriber->markAsUnsubscribed();
             return response('Lien valide', 200);
         }
 
