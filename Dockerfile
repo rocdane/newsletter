@@ -1,150 +1,54 @@
-# syntax=docker/dockerfile:1.4
-FROM php:8.3-fpm-alpine AS base
+# -------------------------------
+# Dockerfile Laravel 12 - PHP 8.3 + Node.js + Redis
+# -------------------------------
 
-# Métadonnées
-LABEL org.opencontainers.image.title="Laravel Mailing App"
-LABEL org.opencontainers.image.description="Laravel application for email campaigns"
-LABEL org.opencontainers.image.vendor="NumeaTech"
+# 1. Image de base PHP avec extensions nécessaires
+FROM php:8.3-fpm
 
-# Variables d'environnement
-ENV APP_ENV=production
-ENV APP_DEBUG=false
-ENV LOG_CHANNEL=stderr
+# 2. Installer les dépendances système
+RUN apt-get update && apt-get install -y git curl zip unzip libzip-dev libonig-dev libpng-dev libxml2-dev libicu-dev libpq-dev libjpeg-dev libfreetype6-dev libwebp-dev libsodium-dev nodejs npm pkg-config
+RUN rm -rf /var/lib/apt/lists/*
 
-# Installation des dépendances système
-RUN apk add --no-cache \
-    nginx \
-    supervisor \
-    curl \
-    zip \
-    unzip \
-    git \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    libzip-dev \
-    icu-dev \
-    oniguruma-dev \
-    && rm -rf /var/cache/apk/*
+# Your existing Dockerfile content above...
 
-# Installation des extensions PHP
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) \
-    pdo_mysql \
-    gd \
-    zip \
-    intl \
-    mbstring \
-    pcntl \
-    bcmath \
-    sockets
+# Configure GD extension first
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
 
-# Installation de Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Configure intl extension
+RUN docker-php-ext-configure intl
 
-# Création de l'utilisateur non-root
-RUN addgroup -g 1000 -S laravel \
-    && adduser -u 1000 -S laravel -G laravel
+# Install PHP extensions (split into logical groups for better caching)
+RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath xml zip intl opcache sockets
 
-# ================================
-# Stage de développement
-# ================================
-FROM base AS development
+# Install GD extension separately after configuration
+RUN docker-php-ext-install gd
 
-# Installation des outils de développement
-RUN apk add --no-cache \
-    nodejs \
-    npm
+# Install sodium extension separately
+RUN docker-php-ext-install sodium
 
-# Xdebug pour le développement
-RUN apk add --no-cache $PHPIZE_DEPS \
-    && pecl install xdebug \
-    && docker-php-ext-enable xdebug
+RUN pecl install redis && docker-php-ext-enable redis
 
-# Configuration Xdebug
-RUN echo "xdebug.mode=develop,coverage,debug" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+# 4. Installer Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# ================================
-# Stage de test
-# ================================
-FROM development AS test
-
+# 5. Définir le répertoire de travail
 WORKDIR /var/www/html
 
-# Copie des fichiers de configuration
-COPY composer.json composer.lock ./
-COPY package.json package-lock.json ./
-
-# Installation des dépendances
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-RUN npm ci --only=production
-
-# Copie du code source
+# 6. Copier les fichiers du projet
 COPY . .
 
-# Permissions
-RUN chown -R laravel:laravel /var/www/html \
-    && chmod -R 755 /var/www/html/storage \
-    && chmod -R 755 /var/www/html/bootstrap/cache
+# 7. Installer les dépendances PHP et Node.js
+RUN composer install --prefer-dist --no-interaction --optimize-autoloader --no-dev --verbose
+RUN npm ci && npm run build
 
-# Tests
-RUN php artisan test --parallel
+# 8. Copier l’exemple d’environnement
+RUN cp .env.example .env && php artisan key:generate
 
-# ================================
-# Stage de production
-# ================================
-FROM base AS production
+# 9. Permissions des dossiers storage et bootstrap
+RUN mkdir -p storage/framework/{sessions,views,cache} && chmod -R 777 storage bootstrap/cache
 
-WORKDIR /var/www/html
+# 10. Exposer le port PHP-FPM
+EXPOSE 9000
 
-# Copie des fichiers de configuration
-COPY composer.json composer.lock ./
-
-# Installation des dépendances de production
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-cache
-
-# Copie du code source
-COPY . .
-
-# Build des assets (si nécessaire)
-# RUN npm ci --only=production && npm run build
-
-# Configuration optimisée
-RUN php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache \
-    && php artisan event:cache
-
-# Permissions
-RUN chown -R laravel:laravel /var/www/html \
-    && chmod -R 755 /var/www/html/storage \
-    && chmod -R 755 /var/www/html/bootstrap/cache
-
-# Configuration Nginx
-COPY docker/nginx.conf /etc/nginx/nginx.conf
-
-# Configuration Supervisor
-COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Configuration PHP-FPM
-RUN echo "pm.max_children = 20" >> /usr/local/etc/php-fpm.d/www.conf \
-    && echo "pm.start_servers = 3" >> /usr/local/etc/php-fpm.d/www.conf \
-    && echo "pm.min_spare_servers = 2" >> /usr/local/etc/php-fpm.d/www.conf \
-    && echo "pm.max_spare_servers = 4" >> /usr/local/etc/php-fpm.d/www.conf
-
-# Exposition du port
-EXPOSE 80
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost/health || exit 1
-
-# Script d'entrypoint
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-USER laravel
-
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# 11. Commande par défaut pour PHP-FPM
+CMD ["php-fpm"]
