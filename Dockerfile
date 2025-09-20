@@ -123,7 +123,6 @@ RUN chown -R laravel:laravel /var/www/html \
 
 # Configuration Nginx
 COPY docker/nginx.conf /etc/nginx/nginx.conf
-COPY docker/default.conf /etc/nginx/http.d/default.conf
 
 # Configuration Supervisor
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
