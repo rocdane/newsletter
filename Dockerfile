@@ -23,25 +23,25 @@ ENV APP_ENV=production
 ENV APP_DEBUG=false
 
 # Installation des dépendances système (optimisée)
-RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
-    && apk add --no-cache nginx supervisor curl zip unzip git nodejs npm libpng-dev libjpeg-turbo-dev freetype-dev libzip-dev icu-dev oniguruma-dev libxml2-dev libsodium-dev bash redis \
-    && rm -rf /var/cache/apk/*
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS
+RUN apk add --no-cache nginx supervisor curl zip unzip git nodejs npm libpng-dev libjpeg-turbo-dev freetype-dev libzip-dev icu-dev oniguruma-dev libxml2-dev libsodium-dev bash redis
+RUN rm -rf /var/cache/apk/*
 
 # Configuration et installation des extensions PHP
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-configure intl \
-    && docker-php-ext-install -j$(nproc) pdo_mysql gd zip intl mbstring pcntl bcmath sockets xml opcache sodium \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
-    && apk del .build-deps \
-    && docker-php-source delete
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg 
+RUN && docker-php-ext-configure int
+RUN docker-php-ext-install -j$(nproc) pdo_mysql gd zip intl mbstring pcntl bcmath sockets xml opcache sodium
+RUN pecl install redis
+RUN docker-php-ext-enable redis
+RUN apk del .build-deps
+RUN docker-php-source delete
 
 # Installation de Composer (version fixe pour reproductibilité)
 COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
 
 # Création de l'utilisateur non-root
 RUN addgroup -g 1000 -S laravel \
-    && adduser -u 1000 -S laravel -G laravel -s /bin/bash
+    RUN adduser -u 1000 -S laravel -G laravel -s /bin/bash
 
 # Configuration PHP optimisée
 RUN { \
@@ -93,12 +93,12 @@ RUN composer dump-autoload --optimize --classmap-authoritative
 RUN npm run build
 
 # Optimisations Laravel
-RUN cp .env.example .env \
-    && php artisan key:generate --no-interaction \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache \
-    && php artisan event:cache
+RUN cp .env.example .env
+RUN php artisan key:generate --no-interaction
+RUN php artisan config:cache
+RUN php artisan route:cache
+RUN php artisan view:cache
+RUN php artisan event:cache
 
 # =============================================================================
 # Test Stage - Exécution des tests
@@ -111,8 +111,8 @@ USER laravel
 RUN composer install --dev --no-interaction
 
 # Configuration pour les tests
-RUN cp .env.example .env.testing \
-    && php artisan key:generate --env=testing --no-interaction
+RUN cp .env.example .env.testing
+RUN php artisan key:generate --env=testing --no-interaction
 
 # Exécution des tests
 RUN php artisan test --env=testing --no-interaction --stop-on-failure
@@ -154,11 +154,11 @@ COPY --from=dependencies --chown=laravel:laravel /var/www/html/vendor ./vendor
 COPY --from=build --chown=laravel:laravel /var/www/html .
 
 # Création des répertoires et permissions
-RUN mkdir -p storage/framework/{cache,sessions,views} \
-    && mkdir -p storage/logs \
-    && mkdir -p bootstrap/cache \
-    && chown -R laravel:laravel storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+RUN mkdir -p storage/framework/{cache,sessions,views}
+RUN mkdir -p storage/logs
+RUN mkdir -p bootstrap/cache
+RUN chown -R laravel:laravel storage bootstrap/cache
+RUN chmod -R 775 storage bootstrap/cache
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
@@ -183,10 +183,10 @@ FROM build AS development
 USER root
 
 # Installation de Xdebug et outils de développement
-RUN apk add --no-cache $PHPIZE_DEPS \
-    && pecl install xdebug \
-    && docker-php-ext-enable xdebug \
-    && apk del $PHPIZE_DEPS
+RUN apk add --no-cache $PHPIZE_DEPS
+RUN pecl install xdebug
+RUN docker-php-ext-enable xdebug
+RUN apk del $PHPIZE_DEPS
 
 # Configuration Xdebug
 RUN { \
