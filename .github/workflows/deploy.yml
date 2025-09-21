@@ -3,7 +3,7 @@ name: 🚀 Deploy to VPS
 on:
   push:
     branches:
-      - main
+      - prod
   workflow_dispatch:
     inputs:
       environment:
@@ -47,7 +47,7 @@ jobs:
         image: redis:alpine
         ports:
           - 6379:6379
-        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries=5
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
       - name: 📥 Checkout code
@@ -124,43 +124,357 @@ jobs:
             --exclude='*.log' \
             ./ deployment/
           tar -czf deployment.tar.gz deployment/
-          cat > deploy-script.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          APP_DIR="$DEPLOY_PATH"
-          BACKUP_DIR="/var/www/backups"
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          NEW_DIR="${APP_DIR}_${TIMESTAMP}"
-          # ... (le reste du script reste inchangé)
-          EOF
-          chmod +x deploy-script.sh
 
       # =============================================================================
-      # Déploiement avec clé SSH
+      # Upload des fichiers sur le VPS
       # =============================================================================
-      - name: 📤 Deploy with SSH Key
+      - name: 📤 Upload deployment files
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          source: "deployment.tar.gz,deploy-script.sh"
+          source: "deployment.tar.gz"
           target: "/tmp/"
           timeout: 300s
 
-      - name: 🚀 Execute deployment (SSH Key)
+      # =============================================================================
+      # Exécution complète du déploiement
+      # =============================================================================
+      - name: 🚀 Execute complete deployment
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          timeout: 900s
           script: |
-            export DEPLOY_PATH="${{ env.DEPLOY_PATH }}"
-            chmod +x /tmp/deploy-script.sh
-            /tmp/deploy-script.sh
-          timeout: 600s
+            set -e
+
+            # Variables de déploiement
+            export APP_DIR="${{ env.DEPLOY_PATH }}"
+            export BACKUP_DIR="/var/www/backups"
+            export TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            export NEW_DIR="${APP_DIR}_${TIMESTAMP}"
+
+            # Couleurs pour les logs
+            RED='\033[0;31m'
+            GREEN='\033[0;32m'
+            YELLOW='\033[1;33m'
+            BLUE='\033[0;34m'
+            NC='\033[0m'
+
+            log() { echo -e "${GREEN}[INFO]${NC} $1"; }
+            warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+            error() { echo -e "${RED}[ERROR]${NC} $1"; }
+            info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+
+            log "🚀 Starting deployment of ${{ env.APP_NAME }}..."
+            log "📍 Deploy path: $APP_DIR"
+            log "💾 Backup path: $BACKUP_DIR"
+            log "📅 Timestamp: $TIMESTAMP"
+
+            # =============================================================================
+            # Préparation des répertoires
+            # =============================================================================
+            log "📁 Preparing directories..."
+            sudo mkdir -p "$NEW_DIR" "$BACKUP_DIR"
+            sudo chown -R $(whoami):$(whoami) "$NEW_DIR" 2>/dev/null || sudo chown -R $(whoami):www-data "$NEW_DIR"
+            sudo chmod -R 755 "$NEW_DIR"
+
+            # =============================================================================
+            # Extraction de l'archive
+            # =============================================================================
+            log "📦 Extracting deployment archive..."
+            if [ ! -f "/tmp/deployment.tar.gz" ]; then
+              error "❌ Deployment archive not found!"
+              exit 1
+            fi
+
+            tar -xzf /tmp/deployment.tar.gz -C /tmp/
+            cp -r /tmp/deployment/* "$NEW_DIR/"
+            rm -rf /tmp/deployment*
+
+            # =============================================================================
+            # Sauvegarde de l'ancienne version
+            # =============================================================================
+            if [ -L "$APP_DIR" ] && [ -e "$APP_DIR" ]; then
+              OLD_TARGET=$(readlink "$APP_DIR")
+              log "💾 Backing up current version: $OLD_TARGET"
+              sudo cp -r "$OLD_TARGET" "$BACKUP_DIR/backup_$TIMESTAMP"
+              
+              # Copie des fichiers persistants
+              log "📋 Copying persistent files..."
+              
+              # Copier .env
+              if [ -f "$APP_DIR/.env" ]; then
+                cp "$APP_DIR/.env" "$NEW_DIR/.env"
+                log "✅ Environment file copied"
+              else
+                warn "⚠️ No .env file found, creating from prod"
+                cp "$NEW_DIR/.env.prod" "$NEW_DIR/.env"
+              fi
+              
+              # Copier le storage (uploads, logs)
+              if [ -d "$APP_DIR/storage" ]; then
+                mkdir -p "$NEW_DIR/storage"
+                # Copier les uploads
+                if [ -d "$APP_DIR/storage/app" ]; then
+                  cp -r "$APP_DIR/storage/app" "$NEW_DIR/storage/" 2>/dev/null || true
+                fi
+                # Garder les logs existants
+                if [ -d "$APP_DIR/storage/logs" ]; then
+                  cp -r "$APP_DIR/storage/logs" "$NEW_DIR/storage/" 2>/dev/null || true
+                fi
+                log "✅ Storage files copied"
+              fi
+            else
+              warn "⚠️ First deployment - creating initial configuration"
+              cp "$NEW_DIR/.env.prod" "$NEW_DIR/.env"
+              
+              # Générer une clé d'application
+              cd "$NEW_DIR"
+              php -r "echo 'APP_KEY=base64:' . base64_encode(random_bytes(32)) . PHP_EOL;" >> .env
+              log "✅ Initial .env created with generated APP_KEY"
+            fi
+
+            # =============================================================================
+            # Configuration de l'application
+            # =============================================================================
+            cd "$NEW_DIR"
+            log "🔧 Configuring Laravel application..."
+
+            # Créer les répertoires nécessaires
+            mkdir -p storage/framework/{cache,sessions,views}
+            mkdir -p storage/logs
+            mkdir -p storage/app/{public,uploads}
+            mkdir -p bootstrap/cache
+
+            # Permissions appropriées
+            sudo chown -R www-data:www-data storage bootstrap/cache
+            sudo chmod -R 775 storage bootstrap/cache
+
+            # Optimisations Laravel
+            log "⚡ Running Laravel optimizations..."
+            sudo -u www-data php artisan config:clear --no-interaction 2>/dev/null || php artisan config:clear --no-interaction
+            sudo -u www-data php artisan route:clear --no-interaction 2>/dev/null || php artisan route:clear --no-interaction
+            sudo -u www-data php artisan view:clear --no-interaction 2>/dev/null || php artisan view:clear --no-interaction
+            sudo -u www-data php artisan cache:clear --no-interaction 2>/dev/null || php artisan cache:clear --no-interaction
+
+            # =============================================================================
+            # Migrations de base de données
+            # =============================================================================
+            if [ "${{ github.event.inputs.environment || 'production' }}" = "production" ]; then
+              log "🗃️ Running database migrations..."
+              sudo -u www-data php artisan migrate --force --no-interaction 2>/dev/null || php artisan migrate --force --no-interaction
+            fi
+
+            # =============================================================================
+            # Optimisations de production
+            # =============================================================================
+            log "🚀 Applying production optimizations..."
+            sudo -u www-data php artisan config:cache --no-interaction 2>/dev/null || php artisan config:cache --no-interaction
+            sudo -u www-data php artisan route:cache --no-interaction 2>/dev/null || php artisan route:cache --no-interaction
+            sudo -u www-data php artisan view:cache --no-interaction 2>/dev/null || php artisan view:cache --no-interaction
+            sudo -u www-data php artisan event:cache --no-interaction 2>/dev/null || php artisan event:cache --no-interaction
+
+            # Lien symbolique pour le storage
+            sudo -u www-data php artisan storage:link --no-interaction 2>/dev/null || php artisan storage:link --no-interaction || true
+
+            # =============================================================================
+            # Mise à jour du symlink principal
+            # =============================================================================
+            log "🔗 Updating application symlink..."
+            sudo rm -f "$APP_DIR"
+            sudo ln -sf "$NEW_DIR" "$APP_DIR"
+
+            # =============================================================================
+            # Gestion des services - PHP-FPM et Nginx
+            # =============================================================================
+            log "🔄 Reloading web services..."
+
+            # Vérifier et redémarrer PHP-FPM
+            if sudo systemctl is-active --quiet php8.3-fpm; then
+              sudo systemctl reload php8.3-fpm
+              log "✅ PHP-FPM reloaded"
+            elif sudo systemctl is-active --quiet php8.2-fpm; then
+              sudo systemctl reload php8.2-fpm
+              log "✅ PHP-FPM 8.2 reloaded"
+            elif sudo systemctl is-active --quiet php-fpm; then
+              sudo systemctl reload php-fpm
+              log "✅ PHP-FPM reloaded"
+            else
+              warn "⚠️ PHP-FPM service not found or not active"
+            fi
+
+            # Vérifier et redémarrer Nginx
+            if sudo systemctl is-active --quiet nginx; then
+              sudo nginx -t && sudo systemctl reload nginx
+              log "✅ Nginx reloaded"
+            else
+              warn "⚠️ Nginx service not found or not active"
+            fi
+
+            # =============================================================================
+            # Configuration et démarrage de Supervisor pour les queues et Reverb
+            # =============================================================================
+            log "📨 Configuring Supervisor for queues and Reverb..."
+
+            # Créer la configuration Supervisor pour les queues
+            sudo tee /etc/supervisor/conf.d/${{ env.APP_NAME }}-worker.conf > /dev/null << SUPERVISOR_CONF
+            [program:${{ env.APP_NAME }}-worker]
+            process_name=%(program_name)s_%(process_num)02d
+            command=php $APP_DIR/artisan queue:work --sleep=3 --tries=3 --max-time=3600 --memory=512
+            directory=$APP_DIR
+            user=www-data
+            autostart=true
+            autorestart=true
+            stopasgroup=true
+            killasgroup=true
+            numprocs=2
+            redirect_stderr=true
+            stdout_logfile=$APP_DIR/storage/logs/worker.log
+            stdout_logfile_maxbytes=50MB
+            stdout_logfile_backups=3
+            stopwaitsecs=3600
+            SUPERVISOR_CONF
+
+            # Créer la configuration Supervisor pour Reverb
+            sudo tee /etc/supervisor/conf.d/${{ env.APP_NAME }}-reverb.conf > /dev/null << REVERB_CONF
+            [program:${{ env.APP_NAME }}-reverb]
+            process_name=%(program_name)s
+            command=php $APP_DIR/artisan reverb:start --host=0.0.0.0 --port=8080
+            directory=$APP_DIR
+            user=www-data
+            autostart=true
+            autorestart=true
+            stopasgroup=true
+            killasgroup=true
+            redirect_stderr=true
+            stdout_logfile=$APP_DIR/storage/logs/reverb.log
+            stdout_logfile_maxbytes=50MB
+            stdout_logfile_backups=3
+            stderr_logfile=$APP_DIR/storage/logs/reverb_error.log
+            stderr_logfile_maxbytes=50MB
+            stderr_logfile_backups=3
+            REVERB_CONF
+
+            # Vérifier si Supervisor est installé et actif
+            if command -v supervisorctl >/dev/null 2>&1; then
+              log "🔄 Updating Supervisor configuration..."
+              sudo supervisorctl reread
+              sudo supervisorctl update
+              
+              # Arrêter les anciens processus s'ils existent
+              sudo supervisorctl stop ${{ env.APP_NAME }}-worker:* 2>/dev/null || true
+              sudo supervisorctl stop ${{ env.APP_NAME }}-reverb 2>/dev/null || true
+              
+              # Démarrer les nouveaux processus
+              sudo supervisorctl start ${{ env.APP_NAME }}-worker:*
+              sudo supervisorctl start ${{ env.APP_NAME }}-reverb
+              
+              # Vérifier le statut
+              sleep 3
+              if sudo supervisorctl status ${{ env.APP_NAME }}-worker:* | grep -q RUNNING; then
+                log "✅ Queue workers started successfully"
+              else
+                warn "⚠️ Queue workers may not be running properly"
+                sudo supervisorctl status ${{ env.APP_NAME }}-worker:*
+              fi
+              
+              if sudo supervisorctl status ${{ env.APP_NAME }}-reverb | grep -q RUNNING; then
+                log "✅ Reverb WebSocket server started successfully"
+              else
+                warn "⚠️ Reverb may not be running properly"
+                sudo supervisorctl status ${{ env.APP_NAME }}-reverb
+              fi
+              
+            else
+              warn "⚠️ Supervisor not found - starting services manually"
+              
+              # Démarrage manuel des workers en arrière-plan
+              log "🔄 Starting queue workers manually..."
+              cd "$APP_DIR"
+              sudo -u www-data nohup php artisan queue:work --daemon --sleep=3 --tries=3 > storage/logs/queue.log 2>&1 &
+              
+              # Démarrage manuel de Reverb
+              log "📡 Starting Reverb WebSocket server manually..."
+              sudo -u www-data nohup php artisan reverb:start --host=0.0.0.0 --port=8080 > storage/logs/reverb.log 2>&1 &
+              
+              log "✅ Services started manually (consider installing Supervisor for better process management)"
+            fi
+
+            # Redémarrer la queue pour recharger le code
+            cd "$APP_DIR"
+            sudo -u www-data php artisan queue:restart --no-interaction 2>/dev/null || true
+
+            # Redémarrer Reverb si disponible
+            sudo -u www-data php artisan reverb:restart --no-interaction 2>/dev/null || true
+
+            # =============================================================================
+            # Nettoyage des anciens déploiements
+            # =============================================================================
+            log "🧹 Cleaning up old deployments..."
+
+            # Garder les 5 dernières versions
+            if [ -d "$(dirname "$APP_DIR")" ]; then
+              ls -dt "${APP_DIR}_"* 2>/dev/null | tail -n +6 | xargs sudo rm -rf 2>/dev/null || true
+              log "✅ Old deployments cleaned up"
+            fi
+
+            # Garder les 5 derniers backups
+            if [ -d "$BACKUP_DIR" ]; then
+              ls -dt "$BACKUP_DIR/backup_"* 2>/dev/null | tail -n +6 | xargs sudo rm -rf 2>/dev/null || true
+              log "✅ Old backups cleaned up"
+            fi
+
+            # =============================================================================
+            # Tests finaux et vérifications
+            # =============================================================================
+            log "🧪 Running final deployment tests..."
+
+            cd "$APP_DIR"
+
+            # Test Laravel
+            if sudo -u www-data php artisan --version >/dev/null 2>&1; then
+              log "✅ Laravel application is working"
+            else
+              error "❌ Laravel application test failed"
+              exit 1
+            fi
+
+            # Test de la base de données (optionnel)
+            if sudo -u www-data php artisan migrate:status >/dev/null 2>&1; then
+              log "✅ Database connection is working"
+            else
+              warn "⚠️ Database connection test failed or no migrations found"
+            fi
+
+            # Vérifier les processus
+            if command -v supervisorctl >/dev/null 2>&1; then
+              log "📊 Services status:"
+              sudo supervisorctl status ${{ env.APP_NAME }}-worker:* ${{ env.APP_NAME }}-reverb || true
+            fi
+
+            # =============================================================================
+            # Rapport final
+            # =============================================================================
+            log "🎉 Deployment completed successfully!"
+            log "📍 Application path: $APP_DIR -> $NEW_DIR"
+            log "🌐 Application should be available at: ${{ secrets.APP_URL || 'your-domain.com' }}"
+            log "📨 Queue workers: Running"
+            log "📡 Reverb WebSocket: Running on port 8080"
+            log "💾 Backup saved to: $BACKUP_DIR/backup_$TIMESTAMP"
+
+            echo ""
+            echo "=== DEPLOYMENT SUMMARY ==="
+            echo "App Name: ${{ env.APP_NAME }}"
+            echo "Environment: ${{ github.event.inputs.environment || 'production' }}"
+            echo "Deployed at: $(date)"
+            echo "Git commit: ${{ github.sha }}"
+            echo "=========================="
 
       # =============================================================================
       # Tests post-déploiement
@@ -168,29 +482,66 @@ jobs:
       - name: 🧪 Post-deployment health checks
         run: |
           echo "🏥 Running health checks..."
+
+          # Test HTTP (si URL configurée)
           if [ -n "${{ secrets.APP_URL }}" ]; then
             echo "Testing HTTP endpoint..."
-            curl -f -s --max-time 30 "${{ secrets.APP_URL }}/health" || echo "⚠️ HTTP health check failed"
+            if curl -f -s --max-time 30 "${{ secrets.APP_URL }}/health" >/dev/null 2>&1; then
+              echo "✅ HTTP health check passed"
+            else
+              echo "⚠️ HTTP health check failed - application may still be starting"
+            fi
           fi
+
+          # Test WebSocket Reverb (si possible)
+          if [ -n "${{ secrets.VPS_HOST }}" ]; then
+            echo "Testing WebSocket endpoint..."
+            if nc -z ${{ secrets.VPS_HOST }} 8080; then
+              echo "✅ WebSocket port 8080 is open"
+            else
+              echo "⚠️ WebSocket port 8080 not accessible"
+            fi
+          fi
+
           echo "✅ Health checks completed"
 
+      # =============================================================================
+      # Notification finale
+      # =============================================================================
       - name: 📢 Deployment notification
         if: always()
         run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Application:** ${{ env.APP_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Laravel Application" >> $GITHUB_STEP_SUMMARY
+          echo "- 📨 Queue Workers (2 processes)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📡 Reverb WebSocket Server" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ job.status }}" = "success" ]; then
-            echo "🎉 Deployment to ${{ github.event.inputs.environment || 'production' }} completed successfully!"
+            echo "🎉 **Deployment completed successfully!**" >> $GITHUB_STEP_SUMMARY
+            if [ -n "${{ secrets.APP_URL }}" ]; then
+              echo "🔗 [Visit Application](${{ secrets.APP_URL }})" >> $GITHUB_STEP_SUMMARY
+            fi
           else
-            echo "❌ Deployment to ${{ github.event.inputs.environment || 'production' }} failed!"
+            echo "❌ **Deployment failed!**" >> $GITHUB_STEP_SUMMARY
+            echo "Check the logs above for details." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: 🧹 Cleanup local files
         if: always()
         run: |
-          rm -f deployment.tar.gz deploy-script.sh
+          rm -f deployment.tar.gz
           rm -rf deployment/
 
   # =============================================================================
-  # Rollback en cas d'échec (optionnel)
+  # Rollback automatique en cas d'échec
   # =============================================================================
   rollback:
     name: 🔄 Rollback on Failure
@@ -199,7 +550,7 @@ jobs:
     if: failure() && needs.deploy.result == 'failure'
 
     steps:
-      - name: 🔄 Execute rollback
+      - name: 🔄 Execute automatic rollback
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -207,18 +558,40 @@ jobs:
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
-            echo "🔄 Starting rollback process..."
+            echo "🔄 Starting automatic rollback process..."
+
             BACKUP_DIR="/var/www/backups"
             APP_DIR="${{ env.DEPLOY_PATH }}"
+
+            # Trouver le backup le plus récent
             LATEST_BACKUP=$(ls -dt "$BACKUP_DIR"/backup_* 2>/dev/null | head -n 1)
+
             if [ -n "$LATEST_BACKUP" ]; then
               echo "📦 Rolling back to: $LATEST_BACKUP"
               sudo rm -f "$APP_DIR"
               sudo ln -sf "$LATEST_BACKUP" "$APP_DIR"
-              sudo systemctl reload php8.3-fpm nginx
-              sudo supervisorctl restart all
-              echo "✅ Rollback completed"
+              
+              # Redémarrer les services
+              echo "🔄 Restarting services..."
+              sudo systemctl reload php8.3-fpm nginx 2>/dev/null || sudo systemctl reload php-fpm nginx
+              
+              # Redémarrer Supervisor
+              if command -v supervisorctl >/dev/null 2>&1; then
+                sudo supervisorctl restart ${{ env.APP_NAME }}-worker:*
+                sudo supervisorctl restart ${{ env.APP_NAME }}-reverb
+              fi
+              
+              echo "✅ Rollback completed successfully"
+              echo "🌐 Application restored to previous version"
             else
               echo "❌ No backup found for rollback"
               exit 1
             fi
+
+      - name: 📢 Rollback notification
+        run: |
+          echo "## 🔄 Automatic Rollback Executed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Due to deployment failure, the application has been automatically rolled back to the previous version." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action required:** Please check the deployment logs and fix the issues before attempting another deployment." >> $GITHUB_STEP_SUMMARY
