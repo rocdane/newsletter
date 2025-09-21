@@ -158,8 +158,8 @@ jobs:
                 cp "$APP_DIR/.env" "$NEW_DIR/.env"
                 log "✅ Environment file copied"
               else
-                warn "⚠️ No .env file found, creating from example"
-                cp "$NEW_DIR/.env.example" "$NEW_DIR/.env"
+                warn "⚠️ No .env file found, creating from prod"
+                cp "$NEW_DIR/.env.prod" "$NEW_DIR/.env"
               fi
               
               # Copier le storage (uploads, logs)
@@ -177,7 +177,7 @@ jobs:
               fi
             else
               warn "⚠️ First deployment - creating initial configuration"
-              cp "$NEW_DIR/.env.example" "$NEW_DIR/.env"
+              cp "$NEW_DIR/.env.prod" "$NEW_DIR/.env"
               
               # Générer une clé d'application
               cd "$NEW_DIR"
