@@ -85,7 +85,6 @@ jobs:
 
     environment:
       name: ${{ github.event.inputs.environment || 'production' }}
-      url: ${{ secrets.APP_URL }}
 
     steps:
       - name: 📥 Checkout code
@@ -119,7 +118,8 @@ jobs:
             --exclude='storage/framework/cache/*' \
             --exclude='tests' \
             --exclude='.env' \
-            --exclude='.env.*' \
+            --exclude='.env.example' \
+            --exclude='.env.testing' \
             --exclude='deployment' \
             --exclude='*.log' \
             ./ deployment/
