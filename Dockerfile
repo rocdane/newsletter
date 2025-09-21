@@ -29,7 +29,6 @@ RUN rm -rf /var/cache/apk/*
 
 # Configuration et installation des extensions PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg 
-RUN docker-php-ext-configure int
 RUN docker-php-ext-install -j$(nproc) pdo_mysql gd zip intl mbstring pcntl bcmath sockets xml opcache sodium
 RUN pecl install redis
 RUN docker-php-ext-enable redis
