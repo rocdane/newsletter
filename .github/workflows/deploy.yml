@@ -220,7 +220,7 @@ jobs:
             # Migrations
             if [ "${{ github.event.inputs.environment || 'production' }}" = "production" ]; then
               log "🗃️ Running database migrations..."
-              sudo -u www-data php artisan migrate --force --no-interaction
+              sudo -u www-data php artisan migrate:fresh --no-interaction
             fi
 
             # Optimisations de production
