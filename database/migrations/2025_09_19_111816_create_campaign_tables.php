@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('from_email')->nullable();
             $table->string('status')->default(CampaignStatus::DRAFT->value);
             $table->timestamps();
+            $table->json('metadata')->nullable();
             $table->index(['status', 'created_at']);
         });
 
@@ -38,8 +39,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('subscriber_id')->constrained()->onDelete('cascade');
             $table->foreignId('campaign_id')->nullable()->constrained()->onDelete('cascade');
-            $table->string('status')->default(EmailStatus::PENDING->value);
             $table->string('tracking_token')->unique();
+            $table->string('status')->default(EmailStatus::PENDING->value);
             $table->timestamp('delivered_at')->nullable();
             $table->timestamp('opened_at')->nullable();
             $table->timestamp('clicked_at')->nullable();
