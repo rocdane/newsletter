@@ -23,51 +23,16 @@ ENV APP_ENV=production
 ENV APP_DEBUG=false
 
 # Installation des dépendances système (optimisée)
-RUN apk add --no-cache --virtual .build-deps \
-    $PHPIZE_DEPS \
-    && apk add --no-cache \
-    nginx \
-    supervisor \
-    curl \
-    zip \
-    unzip \
-    git \
-    nodejs \
-    npm \
-    # Bibliothèques pour extensions PHP
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    libzip-dev \
-    icu-dev \
-    oniguruma-dev \
-    libxml2-dev \
-    libsodium-dev \
-    # Outils système
-    bash \
-    redis \
-    # Nettoyage du cache
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && apk add --no-cache nginx supervisor curl zip unzip git nodejs npm libpng-dev libjpeg-turbo-dev freetype-dev libzip-dev icu-dev oniguruma-dev libxml2-dev libsodium-dev bash redis \
     && rm -rf /var/cache/apk/*
 
 # Configuration et installation des extensions PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-configure intl \
-    && docker-php-ext-install -j$(nproc) \
-    pdo_mysql \
-    gd \
-    zip \
-    intl \
-    mbstring \
-    pcntl \
-    bcmath \
-    sockets \
-    xml \
-    opcache \
-    sodium \
-    # Installation de Redis
+    && docker-php-ext-install -j$(nproc) pdo_mysql gd zip intl mbstring pcntl bcmath sockets xml opcache sodium \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    # Nettoyage
     && apk del .build-deps \
     && docker-php-source delete
 
@@ -106,13 +71,7 @@ COPY --chown=laravel:laravel composer.json composer.lock ./
 COPY --chown=laravel:laravel package.json package-lock.json ./
 
 # Installation des dépendances PHP
-RUN composer install \
-    --no-dev \
-    --no-scripts \
-    --no-autoloader \
-    --prefer-dist \
-    --no-interaction \
-    --optimize-autoloader
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction --optimize-autoloader
 
 # Installation des dépendances Node.js
 RUN npm ci --only=production --no-audit --no-fund
