@@ -139,7 +139,6 @@ jobs:
       # Déploiement avec clé SSH
       # =============================================================================
       - name: 📤 Deploy with SSH Key
-        if: ${{ secrets.VPS_PRIVATE_KEY != '' }}
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -151,7 +150,6 @@ jobs:
           timeout: 300s
 
       - name: 🚀 Execute deployment (SSH Key)
-        if: ${{ secrets.VPS_PRIVATE_KEY != '' }}
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -163,28 +161,6 @@ jobs:
             chmod +x /tmp/deploy-script.sh
             /tmp/deploy-script.sh
           timeout: 600s
-
-      # =============================================================================
-      # Déploiement avec mot de passe (fallback)
-      # =============================================================================
-      - name: 📤 Deploy with Password
-        if: ${{ secrets.VPS_PRIVATE_KEY == '' && secrets.VPS_PASSWORD != '' }}
-        run: |
-          sudo apt-get update && sudo apt-get install -y sshpass
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" scp \
-            -o StrictHostKeyChecking=no \
-            -P ${{ secrets.VPS_PORT || 22 }} \
-            deployment.tar.gz deploy-script.sh \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/
-
-      - name: 🚀 Execute deployment (Password)
-        if: ${{ secrets.VPS_PRIVATE_KEY == '' && secrets.VPS_PASSWORD != '' }}
-        run: |
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh \
-            -o StrictHostKeyChecking=no \
-            -p ${{ secrets.VPS_PORT || 22 }} \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            'export DEPLOY_PATH='${{ env.DEPLOY_PATH }}' && chmod +x /tmp/deploy-script.sh && /tmp/deploy-script.sh'
 
       # =============================================================================
       # Tests post-déploiement
