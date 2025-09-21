@@ -47,8 +47,9 @@ jobs:
 
       - name: 🎨 Install and build assets
         run: |
-          npm ci --only=production --silent
+          npm ci --silent
           npm run build --silent
+          npm prune --production --silent
 
       - name: 📁 Create deployment archive
         run: |
