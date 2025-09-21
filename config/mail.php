@@ -96,6 +96,10 @@ return [
             ],
             'retry_after' => 60,
         ],
+        
+        'mailtrap' => [
+            'transport' => 'mailtrap',
+        ],
 
     ],
 

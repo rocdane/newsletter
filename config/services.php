@@ -34,5 +34,10 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    
+    'mailtrap' => [
+        'domain' => env('MAILTRAP_DOMAIN'),
+        'secret' => env('MAILTRAP_SECRET'),
+    ],
 
 ];
