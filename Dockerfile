@@ -29,11 +29,19 @@ RUN rm -rf /var/cache/apk/*
 
 # Configuration et installation des extensions PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg 
+
 RUN docker-php-ext-configure intl 
-RUN docker-php-ext-install -j$(nproc) pdo_mysql gd zip intl mbstring pcntl bcmath sockets xml opcache sodium gd
+
+RUN docker-php-ext-install -j$(nproc) 
+
+RUN docker-php-ext-install pdo_mysql gd zip intl mbstring pcntl bcmath sockets xml opcache sodium gd
+
 RUN pecl install redis
+
 RUN docker-php-ext-enable redis
+
 RUN apk del .build-deps
+
 RUN docker-php-source delete
 
 # Installation de Composer (version fixe pour reproductibilité)
