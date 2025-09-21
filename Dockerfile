@@ -29,7 +29,7 @@ RUN rm -rf /var/cache/apk/*
 
 # Configuration et installation des extensions PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg 
-RUN && docker-php-ext-configure int
+RUN docker-php-ext-configure int
 RUN docker-php-ext-install -j$(nproc) pdo_mysql gd zip intl mbstring pcntl bcmath sockets xml opcache sodium
 RUN pecl install redis
 RUN docker-php-ext-enable redis
@@ -40,8 +40,8 @@ RUN docker-php-source delete
 COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
 
 # Création de l'utilisateur non-root
-RUN addgroup -g 1000 -S laravel \
-    RUN adduser -u 1000 -S laravel -G laravel -s /bin/bash
+RUN addgroup -g 1000 -S laravel
+RUN adduser -u 1000 -S laravel -G laravel -s /bin/bash
 
 # Configuration PHP optimisée
 RUN { \
