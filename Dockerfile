@@ -32,8 +32,6 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg
 
 RUN docker-php-ext-configure intl 
 
-RUN docker-php-ext-install -j$(nproc) 
-
 RUN docker-php-ext-install pdo_mysql gd zip intl mbstring pcntl bcmath sockets xml opcache sodium gd
 
 RUN pecl install redis
