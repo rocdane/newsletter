@@ -29,18 +29,13 @@ RUN docker-php-ext-install sodium
 
 RUN pecl install redis && docker-php-ext-enable redis
 
-# 4 Création de l'utilisateur non-root
-RUN addgroup -g 1000 -S laravel && adduser -u 1000 -S laravel -G laravel
-
-RUN chown -R laravel:laravel /var/www/html
-
-# 5. Définir le répertoire de travail
+# 4. Définir le répertoire de travail
 WORKDIR /var/www/html
 
-# 6. Copier les fichiers du projet
+# 5. Copier les fichiers du projet
 COPY . .
 
-# 7. Installer les dépendances PHP et Node.js
+# 6. Installer les dépendances PHP et Node.js
 RUN composer install --prefer-dist --no-interaction --optimize-autoloader --no-dev --verbose
 RUN npm ci && npm run build
 
@@ -48,7 +43,7 @@ RUN npm ci && npm run build
 RUN cp .env.prod .env && php artisan key:generate
 
 # 9. Permissions des dossiers storage et bootstrap
-RUN mkdir -p storage/framework/{sessions,views,cache} && chmod -R 755 storage bootstrap/cache
+RUN mkdir -p storage/framework/{sessions,views,cache} && chmod -R 777 storage bootstrap/cache
 
 # Configuration Nginx
 COPY docker/nginx.conf /etc/nginx/nginx.conf
