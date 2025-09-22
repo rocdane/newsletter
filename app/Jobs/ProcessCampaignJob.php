@@ -31,6 +31,8 @@ class ProcessCampaignJob implements ShouldQueue
         ]);
 
         try {
+            $campaign = $this->campaign;
+
             $jobs = [];
 
             foreach ($this->campaign->emails as $index => $email) {
@@ -38,15 +40,22 @@ class ProcessCampaignJob implements ShouldQueue
                 $jobs[] = (new SendSingleEmailJob($email))->delay($delay);
             }
 
-            $batch = Bus::batch($jobs)->dispatch();
-
-            Cache::put('campaign_batch_id', $batch?->id ?? 0);
-
-            Log::info('Processing Campaign job finished successfully', [
-                'campaign_id' => $this->campaign->id,
-                'batch_id' => $batch?->id,
-                'total_emails' => $this->campaign->emails()->count(),
-            ]);
+            $batch = Bus::batch($jobs)
+                ->then(function (Batch $batch) use ($campaign) {
+                    $campaign->markAsCompleted();
+                    Cache::forget('campaign_batch_' . $campaign->id);
+                })
+                ->catch(function (Batch $batch, Throwable $e) use ($campaign) {
+                    $campaign->markAsFailed();
+                    Cache::forget('campaign_batch_' . $campaign->id);
+                })
+                ->finally(function (Batch $batch) use ($campaign) {
+                    Cache::forget('campaign_batch_' . $campaign->id);
+                })
+                ->name("Campaign {$campaign->id}")
+                ->dispatch();
+            
+            Cache::put('campaign_batch_' . $campaign->id, $batch->id, now()->addHours(24));
 
         } catch (\Throwable $th) {
             Log::error('Processing Campaign Job Failed', [

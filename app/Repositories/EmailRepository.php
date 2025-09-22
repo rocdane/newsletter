@@ -30,9 +30,19 @@ class EmailRepository
         return Email::pending()->with(['subscriber', 'campaign'])->get();
     }
 
-    public function getSentEmails(): Collection
+    public function getDeliveredEmails(): Collection
     {
-        return Email::sent()->with(['subscriber', 'campaign'])->get();
+        return Email::delivered()->with(['subscriber', 'campaign'])->get();
+    }
+
+    public function getOpenedEmails(): Collection
+    {
+        return Email::opened()->with(['subscriber', 'campaign'])->get();
+    }
+
+    public function getClickedEmails(): Collection
+    {
+        return Email::clicked()->with(['subscriber', 'campaign'])->get();
     }
 
     public function findByTrackingToken(string $token): ?Email
@@ -40,14 +50,6 @@ class EmailRepository
         return Email::where('tracking_token', $token)
             ->with(['subscriber', 'campaign'])
             ->first();
-    }
-
-    public function updateEmailStatus(Email $email, string $status): Email
-    {
-        $email->status = $status;
-        $email->save();
-
-        return $email;
     }
 
     public function getEmailsByCampaign(Campaign $campaign): Collection

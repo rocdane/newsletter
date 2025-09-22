@@ -103,6 +103,21 @@ class CampaignForm extends Component
         }
     }
 
+    public function getProgressPercentage()
+    {
+        return ($this->currentStep / $this->totalSteps) * 100;
+    }
+    
+    public function isStepComplete($step)
+    {
+        try {
+            $this->validateStep($step);
+            return true;
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return false;
+        }
+    }
+
     public function createCampaign(CampaignService $campaignService, EmailParsingService $emailParsingService)
     {
         for ($i = 1; $i <= $this->totalSteps; $i++) {
@@ -124,25 +139,10 @@ class CampaignForm extends Component
             
             session()->flash('success', 'Campagne créée avec succès !');
 
-            $this->redirect()->route('email.campaign.progress',['campaign'=>$campaign->id]);
+            return redirect()->route('email.campaign.progress',['campaign'=>$campaign->id]);
             
         } catch (\Exception $e) {
             session()->flash('error', 'Erreur lors de la création : ' . $e->getMessage());
-        }
-    }
-    
-    public function getProgressPercentage()
-    {
-        return ($this->currentStep / $this->totalSteps) * 100;
-    }
-    
-    public function isStepComplete($step)
-    {
-        try {
-            $this->validateStep($step);
-            return true;
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return false;
         }
     }
 

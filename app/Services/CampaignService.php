@@ -39,31 +39,14 @@ class CampaignService
         return $campaign;
     }
 
-    public function getCampaignStats(Campaign $campaign): array
-    {
-        $total = $campaign->emails()->count();
-        $delivered = $campaign->emails()->delivered()->count();
-        $pending = $campaign->emails()->pending()->count();
-        $clicked = $campaign->emails()->clicked()->count();
-
-        if (($delivered + $pending) >= $total) {
-            $campaign->update(['status' => CampaignStatus::COMPLETED->value]);
-        }
-
-        return [
-            'total' => $total,
-            'delivered' => $delivered,
-            'pending' => $pending,
-            'clicked' => $clicked,
-            'progress_percentage' => round(($sent + $pending) / $total * 100, 2),
-        ];
-    }
-
     public function getDashboardStats(): array
     {
         return [
             'total_campaigns' => Campaign::count(),
+            'total_pending' => $this->emailRepository->getPendingEmails()->count(),
             'total_delivered' => $this->emailRepository->getDeliveredEmails()->count(),
+            'total_opened' => $this->emailRepository->getOpenedEmails()->count(),
+            'total_clicked' => $this->emailRepository->getclickedEmails()->count(),
         ];
     }
 }
