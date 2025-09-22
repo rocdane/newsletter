@@ -7,9 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 use App\Enums\EmailStatus;
+use App\Services\Metadata;
 
 class Email extends Model
 {
+    use Metadata;
+
     protected $fillable = [
         'subscriber_id',
         'campaign_id',
@@ -23,6 +26,7 @@ class Email extends Model
 
     protected $casts = [
         'delivered_at' => 'datetime',
+        'opened_at' => 'datetime',
         'clicked_at' => 'datetime',
         'metadata' => 'array',
     ];
@@ -114,79 +118,13 @@ class Email extends Model
     }
 
     /**
-     * Ajouter des métadonnées à l'email
+     * Obtenir toutes les livraisons
      */
-    public function addMetadata(string $key, mixed $value): void
+    public function getDeliverEvents(): array
     {
-        $metadata = $this->metadata ?? [];
-        
-        if (in_array($key, ['delivery', 'open', 'click'])) {
-            if (!isset($metadata[$key])) {
-                $metadata[$key] = [];
-            }
-            $metadata[$key][] = $value;
-        } else {
-            $metadata[$key] = $value;
-        }
-        
-        $this->metadata = $metadata;
-    }
+        $data = $this->getMetadata('deliver', []);
 
-    /**
-     * Récupérer une métadonnée spécifique
-     */
-    public function getMetadata(string $key, mixed $default = null): mixed
-    {
-        return data_get($this->metadata, $key, $default);
-    }
-
-    /**
-     * Vérifier si une métadonnée existe
-     */
-    public function hasMetadata(string $key): bool
-    {
-        return data_get($this->metadata, $key) !== null;
-    }
-
-    /**
-     * Supprimer une métadonnée
-     */
-    public function removeMetadata(string $key): void
-    {
-        $metadata = $this->metadata ?? [];
-        unset($metadata[$key]);
-        $this->metadata = $metadata;
-    }
-
-    /**
-     * Ajouter des informations de géolocalisation
-     */
-    public function addGeolocationData(array $location): void
-    {
-        $this->addMetadata('geolocation', array_merge($location, [
-            'recorded_at' => now()->toISOString(),
-        ]));
-    }
-
-    /**
-     * Ajouter des informations sur l'appareil
-     */
-    public function addDeviceInfo(array $deviceInfo): void
-    {
-        $this->addMetadata('device', array_merge($deviceInfo, [
-            'recorded_at' => now()->toISOString(),
-        ]));
-    }
-
-    /**
-     * Ajouter des métriques personnalisées
-     */
-    public function addCustomMetrics(string $metric, mixed $value): void
-    {
-        $this->addMetadata("metrics.{$metric}", [
-            'value' => $value,
-            'recorded_at' => now()->toISOString(),
-        ]);
+        return $this->getEvents($data);
     }
 
     /**
@@ -194,7 +132,9 @@ class Email extends Model
      */
     public function getOpenEvents(): array
     {
-        return $this->getMetadata('open', []);
+        $data = $this->getMetadata('open', []);
+
+        return $this->getEvents($data);
     }
 
     /**
@@ -202,23 +142,9 @@ class Email extends Model
      */
     public function getClickEvents(): array
     {
-        return $this->getMetadata('click', []);
-    }
+        $data = $this->getMetadata('click', []);
 
-    /**
-     * Compter le nombre d'ouvertures
-     */
-    public function getOpenCount(): int
-    {
-        return count($this->getOpenEvents());
-    }
-
-    /**
-     * Compter le nombre de clics
-     */
-    public function getClickCount(): int
-    {
-        return count($this->getClickEvents());
+        return $this->getEvents($data);
     }
 
     public function getTrackingPixelUrl(): string
@@ -232,25 +158,5 @@ class Email extends Model
             'token' => $this->tracking_token,
             'url' => base64_encode($originalUrl),
         ]);
-    }
-
-    /**
-     * Scope pour filtrer par métadonnées
-     */
-    public function scopeWithMetadata($query, string $key, mixed $value = null)
-    {
-        if ($value === null) {
-            return $query->whereJsonContainsKey('metadata', $key);
-        }
-        
-        return $query->whereJsonContains('metadata->' . $key, $value);
-    }
-
-    /**
-     * Scope pour les emails avec géolocalisation
-     */
-    public function scopeWithGeolocation($query)
-    {
-        return $query->whereJsonContainsKey('metadata', 'geolocation');
     }
 }

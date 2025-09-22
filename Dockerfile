@@ -5,11 +5,12 @@
 # 1. Image de base PHP avec extensions nécessaires
 FROM php:8.3-fpm
 
-# 2. Installer les dépendances système
+# 2. Installer Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# 3. Installer les dépendances système
 RUN apt-get update && apt-get install -y git curl zip unzip libzip-dev libonig-dev libpng-dev libxml2-dev libicu-dev libpq-dev libjpeg-dev libfreetype6-dev libwebp-dev libsodium-dev nodejs npm pkg-config
 RUN rm -rf /var/lib/apt/lists/*
-
-# Your existing Dockerfile content above...
 
 # Configure GD extension first
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
@@ -28,27 +29,47 @@ RUN docker-php-ext-install sodium
 
 RUN pecl install redis && docker-php-ext-enable redis
 
-# 4. Installer Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# 5. Définir le répertoire de travail
+# 4. Définir le répertoire de travail
 WORKDIR /var/www/html
 
-# 6. Copier les fichiers du projet
+# 5. Copier les fichiers du projet
 COPY . .
 
-# 7. Installer les dépendances PHP et Node.js
+# 6. Installer les dépendances PHP et Node.js
 RUN composer install --prefer-dist --no-interaction --optimize-autoloader --no-dev --verbose
 RUN npm ci && npm run build
 
 # 8. Copier l’exemple d’environnement
-RUN cp .env.example .env && php artisan key:generate
+RUN cp .env.prod .env && php artisan key:generate
 
 # 9. Permissions des dossiers storage et bootstrap
 RUN mkdir -p storage/framework/{sessions,views,cache} && chmod -R 777 storage bootstrap/cache
 
+# Configuration Nginx
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/default.conf /etc/nginx/http.d/default.conf
+
+# Configuration Supervisor
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Configuration PHP-FPM
+RUN echo "pm.max_children = 20" >> /usr/local/etc/php-fpm.d/www.conf \
+    && echo "pm.start_servers = 3" >> /usr/local/etc/php-fpm.d/www.conf \
+    && echo "pm.min_spare_servers = 2" >> /usr/local/etc/php-fpm.d/www.conf \
+    && echo "pm.max_spare_servers = 4" >> /usr/local/etc/php-fpm.d/www.conf
+
 # 10. Exposer le port PHP-FPM
 EXPOSE 9000
 
-# 11. Commande par défaut pour PHP-FPM
-CMD ["php-fpm"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost/health || exit 1
+
+# Script d'entrypoint
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+USER laravel
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
