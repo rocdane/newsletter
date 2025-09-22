@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('from_name')->nullable();
             $table->string('from_email')->nullable();
             $table->string('status')->default(CampaignStatus::DRAFT->value);
+            $table->string('batch_id')->nullable();
             $table->timestamps();
             $table->json('metadata')->nullable();
             $table->index(['status', 'created_at']);

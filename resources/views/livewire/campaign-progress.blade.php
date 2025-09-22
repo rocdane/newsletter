@@ -6,7 +6,7 @@
                     <h2 class="text-2xl font-bold text-gray-900">{{ $campaign->name }}</h2>
                     <span class="px-3 py-1 rounded-full text-sm font-medium
                         @if($status === 'completed') bg-green-100 text-green-800
-                        @elseif($status === 'sending') bg-blue-100 text-blue-800
+                        @elseif($status === 'processing') bg-blue-100 text-blue-800
                         @elseif($status === 'failed' || $status === 'cancelled') bg-red-100 text-red-800
                         @else bg-gray-100 text-gray-800
                         @endif">
@@ -17,7 +17,7 @@
                 <!-- Barre de progression -->
                 <div class="mb-8">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm font-medium text-gray-700">Progression</span>
+                        <span class="text-sm font-medium text-gray-700">Progression de l'envoi</span>
                         <span class="text-sm text-gray-500">{{ $progress }}%</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-3">
@@ -48,7 +48,7 @@
 
                 <!-- Métriques de tracking -->
                 <div class="border-t pt-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Tracking</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Performance des emails</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="bg-blue-50 p-4 rounded-lg">
                             <div class="flex items-center">
@@ -74,6 +74,33 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Statistiques supplémentaires -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="flex items-center">
+                                <div class="text-2xl font-bold text-gray-600">{{ $stats['delivered_count'] }}</div>
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-gray-900">Livrés</div>
+                                    <div class="text-xs text-gray-600">
+                                        {{ $stats['delivery_rate'] }}% taux de livraison
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <div class="flex items-center">
+                                <div class="text-2xl font-bold text-orange-600">{{ $stats['pending_count'] }}</div>
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-orange-900">En attente</div>
+                                    <div class="text-xs text-orange-600">
+                                        En cours d'envoi
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Actions -->
@@ -83,7 +110,7 @@
                         Nouvelle campagne
                     </a>
                     
-                    @if($status === 'sending')
+                    @if($status === 'processing')
                     <button wire:click="cancelCampaign" 
                             wire:confirm="Êtes-vous sûr de vouloir annuler cette campagne ?"
                             class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-200">
@@ -95,27 +122,30 @@
         </div>
     </div>
 
-    @if($status === 'sending')
-        @push('scripts')
+    @if($status === 'processing')
+        @script
         <script>
             let progressInterval;
             
+            // Démarrer le polling
             progressInterval = setInterval(() => {
                 $wire.pollProgress();
             }, 2000);
 
+            // Arrêter le polling quand le composant est détruit
             document.addEventListener('livewire:will-morph', () => {
                 if (progressInterval) {
                     clearInterval(progressInterval);
                 }
             });
 
-            $wire.on('campaign-finished', () => {
-                if (progressInterval) {
+            // Arrêter le polling quand la campagne est terminée
+            $wire.on('progressUpdated', () => {
+                if ($wire.status !== 'processing') {
                     clearInterval(progressInterval);
                 }
             });
         </script>
-        @endpush
+        @endscript
     @endif
 </section>

@@ -43,14 +43,14 @@ class ProcessCampaignJob implements ShouldQueue
             $batch = Bus::batch($jobs)
                 ->then(function (Batch $batch) use ($campaign) {
                     $campaign->markAsCompleted();
-                    Cache::forget('campaign_batch_' . $campaign->id);
+                    //Cache::forget('campaign_batch_' . $campaign->id);
                 })
                 ->catch(function (Batch $batch, Throwable $e) use ($campaign) {
                     $campaign->markAsFailed();
-                    Cache::forget('campaign_batch_' . $campaign->id);
+                    //Cache::forget('campaign_batch_' . $campaign->id);
                 })
                 ->finally(function (Batch $batch) use ($campaign) {
-                    Cache::forget('campaign_batch_' . $campaign->id);
+                    //Cache::forget('campaign_batch_' . $campaign->id);
                 })
                 ->name("Campaign {$campaign->id}")
                 ->dispatch();

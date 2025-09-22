@@ -11,7 +11,7 @@ trait Metadata
     {
         $metadata = $this->metadata ?? [];
         
-        if (in_array($key, ['delivery', 'open', 'click'])) {
+        if (in_array($key, ['delivery', 'open', 'click', 'jobs_progress', 'jobs_processed', 'jobs_pending', 'jobs_failed', 'jobs_total'])){
             if (!isset($metadata[$key])) {
                 $metadata[$key] = [];
             }

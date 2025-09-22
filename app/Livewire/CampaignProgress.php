@@ -3,37 +3,44 @@
 namespace App\Livewire;
 
 use App\Models\Campaign;
-use App\Services\CampaignService;
 use Livewire\Component;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Bus\Batch;
 
 class CampaignProgress extends Component
 {
     public Campaign $campaign;
     public $batchId;
+    public $progress = 0;
     public $processed = 0;
     public $pending = 0;
     public $failed = 0;
     public $total = 0;
-    public $progress = 0;
-    public $finished = true;
     public $status = 'idle';
-
-    protected $listeners = ['refreshProgress' => '$refresh'];
+    public $polling = true;
+    
+    protected $listeners = ['refreshProgress' => 'pollProgress'];
 
     public function mount(Campaign $campaign)
     {
         $this->campaign = $campaign;
         $this->batchId = Cache::get('campaign_batch_'.$campaign->id);
-        
+        $this->campaign->setBatchId($this->batchId);
         $this->pollProgress();
+        if ($this->campaign->hasActiveBatch()) {
+            $this->startPolling();
+        }
     }
 
     public function pollProgress()
     {
-        $this->batchId = Cache::get('campaign_batch_'.$this->campaign->id);
+        
+        if (!$this->polling) {
+            return;
+        }
+
+        $this->batchId = $this->campaign->getMetadata('batch_id') 
+            ?: Cache::get('campaign_batch_'.$this->campaign->id);
 
         if (!$this->batchId) {
             $this->status = 'completed';
@@ -42,71 +49,85 @@ class CampaignProgress extends Component
 
         $batch = Bus::findBatch($this->batchId);
 
-        if (!$batch) {
+        if (!$batch->id) {
             $this->status = 'completed';
             Cache::forget('campaign_batch_' . $this->campaign->id);
+            $this->campaign->removeMetadata('batch_id');
+            $this->stopPolling();
             return;
         }
 
-        $this->processed = $batch->processedJobs();
-        $this->pending = $batch->pendingJobs;
-        $this->failed = $batch->failedJobs;
-        $this->total = $batch->totalJobs;
-        $this->progress = $batch->progress();
-        $this->finished = $batch->finished();    
-        
+        $this->campaign->updateBatchProgress($this->batchId);
+
+        $batchStats = $this->campaign->getBatchStats();
+
+        $this->processed = $batchStats['processed'][0];
+        $this->pending = $batchStats['pending'][0];
+        $this->failed = $batchStats['failed'][0];
+        $this->total = $batchStats['total'][0];
+        $this->progress = round(($this->processed + $this->failed + $this->pending) / $this->total * 100, 1) ;
+
         if ($batch->cancelled()) {
             $this->status = 'cancelled';
+            $this->stopPolling();
         } elseif ($batch->finished()) {
             $this->status = 'completed';
             $this->campaign->markAsCompleted();
-            Cache::forget('campaign_batch_' . $this->campaign->id);
+            $this->stopPolling();
         } else {
-            $this->status = 'sending';
+            $this->status = 'processing';
         }
 
-        $this->dispatch('refreshProgress');
+        $this->dispatch('progress-updated', [
+            'progress' => $this->progress,
+            'processed' => $this->processed,
+            'total' => $this->total
+        ]);
+    }
+
+    public function startPolling()
+    {
+        $this->polling = true;
+        $this->dispatch('start-polling');
+    }
+
+    public function stopPolling()
+    {
+        $this->polling = false;
+        $this->dispatch('stop-polling');
     }
 
     public function cancelCampaign()
     {
-        if ($this->batchId) {
-            $batch = Bus::findBatch($this->batchId);
+        $batchId = $this->campaign->batch_id;
+        
+        if ($batchId) {
+            $batch = Bus::findBatch($batchId);
             
             if ($batch && !$batch->finished()) {
                 $batch->cancel();
                 $this->status = 'cancelled';
+                $this->campaign->updateBatchProgress($batchId);
             }
-
-            $this->campaign->delete();
+            
+            $this->campaign->clearBatchId();
         }
+
+        $this->stopPolling();
 
         return redirect()->route('email.campaign.create');
     }
 
+    // Propriété computed pour les stats
     public function getStatsProperty()
     {
-        $sent = $this->campaign->emails()->count();
-        $opened = $this->campaign->emails()->opened()->count();
-        $clicked = $this->campaign->emails()->clicked()->count();
-        $delivered = $this->campaign->emails()->delivered()->count();
-
-        return [
-            'sent' => $sent,
-            'delivered_count' => $delivered,
-            'opened_count' => $opened,
-            'clicked_count' => $clicked,
-            'pending_count' => $this->campaign->emails()->pending()->count(),
-            'delivery_rate' => $sent > 0 ? round(($delivered / $sent) * 100, 1) : 0,
-            'open_rate' => $delivered > 0 ? round(($opened / $delivered) * 100, 1) : 0,
-            'click_rate' => $opened > 0 ? round(($clicked / $opened) * 100, 1) : 0,
-        ];
+        return $this->campaign->getEmailStats();
     }
 
     public function render()
     {
-        $this->pollProgress();
-
-        return view('livewire.campaign-progress');
+        return view('livewire.campaign-progress', [
+            'stats' => $this->getStatsProperty()
+        ]);
     }
 }
