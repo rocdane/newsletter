@@ -15,7 +15,7 @@ class EmailRepository
         foreach ($subscribers as $subscriber) {
             $email = Email::create([
                 'subscriber_id' => $subscriber->id,
-                'email_campaign_id' => $campaign->id,
+                'campaign_id' => $campaign->id,
                 'status' => 'pending',
             ]);
 
@@ -27,18 +27,18 @@ class EmailRepository
 
     public function getPendingEmails(): Collection
     {
-        return Email::pending()->with('subscriber')->get();
+        return Email::pending()->with(['subscriber', 'campaign'])->get();
     }
 
     public function getSentEmails(): Collection
     {
-        return Email::sent()->with('subscriber')->get();
+        return Email::sent()->with(['subscriber', 'campaign'])->get();
     }
 
     public function findByTrackingToken(string $token): ?Email
     {
         return Email::where('tracking_token', $token)
-            ->with('subscriber')
+            ->with(['subscriber', 'campaign'])
             ->first();
     }
 

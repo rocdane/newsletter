@@ -124,7 +124,7 @@ class CampaignForm extends Component
             
             session()->flash('success', 'Campagne créée avec succès !');
 
-            $this->redirect('/campaigns');
+            $this->redirect()->route('email.campaign.progress',['campaign'=>$campaign->id]);
             
         } catch (\Exception $e) {
             session()->flash('error', 'Erreur lors de la création : ' . $e->getMessage());
