@@ -15,9 +15,6 @@ class CampaignForm extends Component
 {
     use WithFileUploads;
 
-    private EmailParsingService $emailParsingService;
-    private $subscribers;
-
     public $currentStep = 1;
     public $totalSteps = 3;
 
@@ -28,7 +25,7 @@ class CampaignForm extends Component
     public $fromName;
     public $fromEmail;
     public $file;
-    
+
     protected $rules = [
         // Step 1
         'campaignName' => 'required|min:3|max:255',
@@ -47,12 +44,10 @@ class CampaignForm extends Component
         'content.required' => 'Le contenu de l\'email ne peut pas être vide.',
     ];
 
-    public function mount(EmailParsingService $emailParsingService)
+    public function mount()
     {
-        $this->emailParsingService = $emailParsingService;
         $this->fromEmail = auth()->user()->email ?? config('mail.from.address');
         $this->fromName = auth()->user()->name ?? config('mail.from.name');
-        $this->updateRecipientCount();
     }
     
     public function nextStep()
@@ -61,10 +56,6 @@ class CampaignForm extends Component
         
         if ($this->currentStep < $this->totalSteps) {
             $this->currentStep++;
-            
-            if ($this->currentStep == 2) {
-                $this->updateRecipientCount();
-            }
         }
     }
     
@@ -108,28 +99,21 @@ class CampaignForm extends Component
                     'fromEmail' => $this->rules['fromEmail'],
                     'file' => $this->rules['file'],
                 ]);
-
                 break;
         }
     }
 
-    private function updateRecipientCount()
-    {
-        if ($this->file) {
-            $this->subscribers = $this->emailParsingService->createSubscribers($this->file);
-            $this->recipientCount = count($this->subscribers);
-        }
-    }
-
-    public function createCampaign(CampaignService $campaignService)
+    public function createCampaign(CampaignService $campaignService, EmailParsingService $emailParsingService)
     {
         for ($i = 1; $i <= $this->totalSteps; $i++) {
             $this->validateStep($i);
         }
         
         try {
+            $subscribers = $emailParsingService->createSubscribers($this->file);
+
             $campaign = $campaignService->createCampaign(
-                $this->subscribers, 
+                $subscribers, 
                 $this->subject, 
                 $this->content, 
                 $this->campaignName,

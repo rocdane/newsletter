@@ -34,7 +34,7 @@ class ProcessCampaignJob implements ShouldQueue
             $jobs = [];
 
             foreach ($this->campaign->emails as $index => $email) {
-                $delay = now()->addSeconds($index * 5);
+                $delay = now()->addSeconds($index + 5);
                 $jobs[] = (new SendSingleEmailJob($email))->delay($delay);
             }
 
