@@ -15,6 +15,7 @@ class CampaignForm extends Component
 {
     use WithFileUploads;
 
+    private EmailParsingService $emailParsingService;
     private $subscribers;
 
     public $currentStep = 1;
@@ -46,8 +47,9 @@ class CampaignForm extends Component
         'content.required' => 'Le contenu de l\'email ne peut pas être vide.',
     ];
 
-    public function mount()
+    public function mount(EmailParsingService $emailParsingService)
     {
+        $this->emailParsingService = $emailParsingService;
         $this->fromEmail = auth()->user()->email ?? config('mail.from.address');
         $this->fromName = auth()->user()->name ?? config('mail.from.name');
         $this->updateRecipientCount();
@@ -113,15 +115,9 @@ class CampaignForm extends Component
 
     private function updateRecipientCount()
     {
-        if($this->subscribers){
-            $this->recipientCount = count($this->subscribers);
-        }
-    }
-
-    private function validateFile(EmailParsingService $emailParsingService)
-    {
         if ($this->file) {
-            $this->subscribers = $emailParsingService->createSubscribers($this->file);
+            $this->subscribers = $this->emailParsingService->createSubscribers($this->file);
+            $this->recipientCount = count($this->subscribers);
         }
     }
 
