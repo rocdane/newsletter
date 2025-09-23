@@ -74,33 +74,6 @@
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Statistiques supplémentaires -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <div class="flex items-center">
-                                <div class="text-2xl font-bold text-gray-600">{{ $stats['delivered_count'] }}</div>
-                                <div class="ml-3">
-                                    <div class="text-sm font-medium text-gray-900">Livrés</div>
-                                    <div class="text-xs text-gray-600">
-                                        {{ $stats['delivery_rate'] }}% taux de livraison
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-orange-50 p-4 rounded-lg">
-                            <div class="flex items-center">
-                                <div class="text-2xl font-bold text-orange-600">{{ $stats['pending_count'] }}</div>
-                                <div class="ml-3">
-                                    <div class="text-sm font-medium text-orange-900">En attente</div>
-                                    <div class="text-xs text-orange-600">
-                                        En cours d'envoi
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Actions -->

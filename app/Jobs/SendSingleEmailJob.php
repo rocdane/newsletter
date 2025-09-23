@@ -10,8 +10,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use App\Events\EmailFailed;
-use App\Events\EmailSent;
 use App\Mail\Letter;
 use App\Models\Email;
 use Exception;
@@ -57,8 +55,6 @@ class SendSingleEmailJob implements ShouldQueue
 
             $email->markAsDelivered();
 
-            EmailSent::dispatch($email, 'Email sent successfully.');
-
             Log::info('Email sent successfully', [
                 'email_id' => $email->id,
                 'subscriber_email' => $email->subscriber->email,
@@ -70,8 +66,6 @@ class SendSingleEmailJob implements ShouldQueue
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-
-            EmailFailed::dispatch($this->email, $e->getMessage());
             
             throw $e;
         }

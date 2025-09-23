@@ -36,6 +36,11 @@ class EmailParsingService
         return $this->subscriberRepository->bulkCreateFromEmails($emails);
     }
 
+    public function getActiveSubscribers(): int
+    {
+        return $this->subscriberRepository->getActiveSubscribers()->count();
+    }
+
     private function validateFile(UploadedFile $file): void
     {
         $validator = Validator::make(

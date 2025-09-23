@@ -23,9 +23,8 @@ class CampaignProgress extends Component
 
     public function mount(Campaign $campaign)
     {
-        $this->campaign = $campaign;
+        $this->campaign = $campaign->refresh();
         $this->batchId = Cache::get('campaign_batch_'.$campaign->id);
-        $this->campaign->setBatchId($this->batchId);
         $this->pollProgress();
         if ($this->campaign->hasActiveBatch()) {
             $this->startPolling();
@@ -118,16 +117,10 @@ class CampaignProgress extends Component
         return redirect()->route('email.campaign.create');
     }
 
-    // Propriété computed pour les stats
-    public function getStatsProperty()
-    {
-        return $this->campaign->getEmailStats();
-    }
-
     public function render()
     {
         return view('livewire.campaign-progress', [
-            'stats' => $this->getStatsProperty()
+            'stats' => $this->campaign->getEmailStats(),
         ]);
     }
 }

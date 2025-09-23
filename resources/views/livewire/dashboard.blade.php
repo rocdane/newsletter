@@ -23,7 +23,7 @@
                     Campagnes totales
                 </dt>
                 <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                    {{ $total_campaigns }}
+                    {{ $stats['total_campaigns'] }}
                 </dd>
             </div>
         </div>
@@ -34,7 +34,7 @@
                     Emails envoyés
                 </dt>
                 <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                    {{ $total_sent }}
+                    {{ $stats['total_delivered'] }}
                 </dd>
             </div>
         </div>
@@ -42,11 +42,40 @@
         <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="px-4 py-5 sm:p-6">
                 <dt class="text-sm font-medium text-gray-500 truncate">
-                    Suscribers actifs
+                    Abonnés
                 </dt>
                 <dd class="mt-1 text-3xl font-semibold text-gray-900">
                     {{ $active_subscribers }}
                 </dd>
+            </div>
+        </div>
+    </div>
+
+    <div class="border-t pt-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Performance des emails</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <div class="flex items-center">
+                    <div class="text-2xl font-bold text-blue-600">{{ $stats['total_opened'] }}</div>
+                    <div class="ml-3">
+                        <div class="text-sm font-medium text-blue-900">Ouvertures</div>
+                        <div class="text-xs text-blue-600">
+                            {{ $stats['open_rate'] }}% taux d'ouverture
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-green-50 p-4 rounded-lg">
+                <div class="flex items-center">
+                    <div class="text-2xl font-bold text-green-600">{{ $stats['total_clicked'] }}</div>
+                    <div class="ml-3">
+                        <div class="text-sm font-medium text-green-900">Clics</div>
+                        <div class="text-xs text-green-600">
+                            {{ $stats['click_rate'] }}% taux de clic
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

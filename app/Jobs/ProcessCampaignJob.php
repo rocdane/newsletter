@@ -33,12 +33,14 @@ class ProcessCampaignJob implements ShouldQueue
         try {
             $campaign = $this->campaign;
 
-            $jobs = [];
+            $jobs = $emails->map(fn($email, $index) => 
+                (new SendSingleEmailJob($email))->delay(now()->addSeconds($index * 15))
+            );
 
+            /*$jobs = [];
             foreach ($this->campaign->emails as $index => $email) {
-                $delay = now()->addSeconds($index + 5);
-                $jobs[] = (new SendSingleEmailJob($email))->delay($delay);
-            }
+                $jobs[] = (new SendSingleEmailJob($email))->delay(now()->addSeconds($index * 5));
+            }*/
 
             $batch = Bus::batch($jobs)
                 ->then(function (Batch $batch) use ($campaign) {
@@ -56,6 +58,10 @@ class ProcessCampaignJob implements ShouldQueue
                 ->dispatch();
             
             Cache::put('campaign_batch_' . $campaign->id, $batch->id, now()->addHours(24));
+
+            $this->campaign->setBatchId($batch->id);
+
+            $this->campaign->refresh();
 
         } catch (\Throwable $th) {
             Log::error('Processing Campaign Job Failed', [

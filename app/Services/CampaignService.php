@@ -41,12 +41,20 @@ class CampaignService
 
     public function getDashboardStats(): array
     {
+        $campaigns = Campaign::count();
+        $pending = $this->emailRepository->getPendingEmails()->count();
+        $delivered = $this->emailRepository->getDeliveredEmails()->count();
+        $opened = $this->emailRepository->getOpenedEmails()->count();
+        $clicked = $this->emailRepository->getclickedEmails()->count();
+
         return [
             'total_campaigns' => Campaign::count(),
-            'total_pending' => $this->emailRepository->getPendingEmails()->count(),
-            'total_delivered' => $this->emailRepository->getDeliveredEmails()->count(),
-            'total_opened' => $this->emailRepository->getOpenedEmails()->count(),
-            'total_clicked' => $this->emailRepository->getclickedEmails()->count(),
+            'total_pending' => $pending,
+            'total_delivered' => $delivered,
+            'total_opened' => $opened,
+            'total_clicked' => $clicked,
+            'open_rate' => $delivered > 0 ? round(($opened / $delivered) * 100, 1) : 0,
+            'click_rate' => $opened > 0 ? round(($clicked / $opened) * 100, 1) : 0,
         ];
     }
 }
