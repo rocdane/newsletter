@@ -14,10 +14,7 @@ use Illuminate\Support\Facades\Session;
 class CampaignForm extends Component
 {
     use WithFileUploads;
-
-    public $currentStep = 1;
-    public $totalSteps = 3;
-
+    
     public $campaignId;
     public $campaignName;
     public $subject;
@@ -25,6 +22,9 @@ class CampaignForm extends Component
     public $fromName;
     public $fromEmail;
     public $file;
+
+    public $currentStep = 1;
+    public $totalSteps = 3;
 
     protected $rules = [
         // Step 1

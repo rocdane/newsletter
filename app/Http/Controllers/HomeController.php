@@ -11,9 +11,4 @@ class HomeController extends Controller
     {
         return view('welcome');
     }
-
-    public function subscribe()
-    {
-        return view('page.subscribe');
-    }
 }

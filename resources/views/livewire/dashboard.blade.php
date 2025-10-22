@@ -7,7 +7,7 @@
             </p>
             
             <div class="flex space-x-4">
-                <a href="{{ route('email.campaign.create') }}" 
+                <a href="{{ route('admin.campaign.create') }}" 
                     class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium">
                     Créer une nouvelle campagne
                 </a>

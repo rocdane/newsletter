@@ -78,7 +78,7 @@
 
                 <!-- Actions -->
                 <div class="border-t pt-6 flex justify-between items-center">
-                    <a href="{{ route('email.campaign.create') }}" 
+                    <a href="{{ route('admin.campaign.create') }}" 
                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-200">
                         Nouvelle campagne
                     </a>

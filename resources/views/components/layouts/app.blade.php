@@ -22,7 +22,7 @@
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <a href="{{ route('email.campaign.create') }}" 
+                        <a href="{{ route('admin.campaign.create') }}" 
                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
                             Nouvelle Campagne
                         </a>
